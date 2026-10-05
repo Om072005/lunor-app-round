@@ -1,69 +1,188 @@
-import Image from "next/image";
+"use client";
+
+import { ArrowRight, BookOpen, Brain, Hammer, Lightbulb, Map, MessageSquareText, Smartphone, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { Header, useAiStatus } from "@/components/Header";
+import { Badge, Button, Card, Eyebrow } from "@/components/ui";
+import { SAMPLES } from "@/data/samples";
+import { LIMITS, STAGE_META, STAGES, type Stage } from "@/lib/constants";
+import { useProjects } from "@/lib/store";
+import { useMounted } from "@/lib/use-mounted";
+
+const EXAMPLES = [
+  "A habit tracker for college students with streaks and daily reminders",
+  "An expense splitter for roommates that shows who owes whom",
+  "A recipe app that suggests meals from ingredients I already have",
+  "A study planner that breaks exams into daily Pomodoro sessions",
+];
+
+const STAGE_ICONS: Record<Stage, typeof Brain> = { understand: Brain, plan: Map, build: Hammer, explain: MessageSquareText, learn: BookOpen };
 
 export default function Home() {
+  const router = useRouter();
+  const [idea, setIdea] = useState("");
+  const create = useProjects((s) => s.create);
+  const addSample = useProjects((s) => s.addSample);
+  const { aiAvailable, checked } = useAiStatus();
+  const tooShort = idea.trim().length < LIMITS.ideaMinChars;
+
+  const start = () => {
+    if (tooShort) return;
+    router.push(`/studio/${create(idea)}`);
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
+    <>
+      <Header />
+      <main className="bg-grid">
+        <section className="mx-auto max-w-5xl px-4 pb-12 pt-16 text-center sm:pt-24">
+          <Badge tone="accent" className="mx-auto">
+            <Smartphone className="size-3" /> New · App Development Studio
+          </Badge>
+          <h1 className="mx-auto mt-6 max-w-3xl text-4xl font-bold leading-[1.08] tracking-tight sm:text-6xl">
+            Don&apos;t just generate an app. <span className="text-accent">Understand it.</span>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="mx-auto mt-5 max-w-2xl text-base text-muted sm:text-lg">
+            Describe your idea. Lunor clarifies it, plans it like a senior engineer, builds a real React Native app you can run on your
+            phone — then explains every line and turns your own code into lessons.
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
+
+          <Card className="mx-auto mt-10 max-w-3xl p-2 text-left glow-accent">
+            <label htmlFor="idea" className="sr-only">Describe your app idea</label>
+            <textarea
+              id="idea"
+              value={idea}
+              onChange={(e) => setIdea(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) start();
+              }}
+              maxLength={LIMITS.ideaMaxChars}
+              rows={3}
+              placeholder="Describe the app you want to build…  e.g. a habit tracker for students with streaks"
+              className="w-full resize-none bg-transparent px-4 pt-3 text-base outline-none placeholder:text-faint"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 px-2 pb-1">
+              <span className="text-xs text-faint">Ctrl + Enter to start · {idea.length}/{LIMITS.ideaMaxChars}</span>
+              <Button onClick={start} disabled={tooShort} icon={<ArrowRight className="size-4" />}>
+                Start with Understand
+              </Button>
+            </div>
+          </Card>
+
+          <div className="mx-auto mt-4 flex max-w-3xl flex-wrap justify-center gap-2">
+            {EXAMPLES.map((ex) => (
+              <button
+                key={ex}
+                onClick={() => setIdea(ex)}
+                className="rounded-full border border-line-strong bg-surface px-3 py-1.5 text-xs text-muted transition-colors hover:border-accent/50 hover:text-fg"
+              >
+                <Lightbulb className="mr-1 inline size-3 text-accent" />
+                {ex}
+              </button>
+            ))}
+          </div>
+          {checked && !aiAvailable && (
+            <p className="mt-4 text-xs text-warn">
+              AI generation is off on this deployment — add a free Gemini key in Settings (top right), or open a sample below.
+            </p>
+          )}
+        </section>
+
+        <section className="mx-auto max-w-6xl px-4 pb-16">
+          <div className="text-center">
+            <Eyebrow>Beyond prompt → app</Eyebrow>
+            <h2 className="mt-2 text-2xl font-bold sm:text-3xl">Five stages. Each one feeds the next.</h2>
+          </div>
+          <ol className="mt-8 grid gap-3 sm:grid-cols-5">
+            {STAGES.map((stage, i) => {
+              const Icon = STAGE_ICONS[stage];
+              return (
+                <li key={stage} className="relative rounded-2xl border border-line bg-surface p-4">
+                  <div className="flex items-center gap-2">
+                    <span className="grid size-8 place-items-center rounded-lg bg-accent-soft text-accent">
+                      <Icon className="size-4" />
+                    </span>
+                    <span className="text-xs font-semibold text-faint">0{i + 1}</span>
+                  </div>
+                  <p className="mt-3 font-semibold">{STAGE_META[stage].label}</p>
+                  <p className="mt-1 text-sm text-muted">{STAGE_META[stage].blurb}</p>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+
+        {SAMPLES.length > 0 && (
+          <section className="mx-auto max-w-6xl px-4 pb-16">
+            <Eyebrow>Explore instantly — no API key needed</Eyebrow>
+            <h2 className="mt-2 text-2xl font-bold">Fully built sample projects</h2>
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              {SAMPLES.map(({ project, emoji, blurb }) => (
+                <button
+                  key={project.id}
+                  onClick={() => router.push(`/studio/${addSample(project)}`)}
+                  className="group flex items-start gap-4 rounded-2xl border border-line bg-surface p-5 text-left transition-colors hover:border-accent/50"
+                >
+                  <span className="text-3xl" aria-hidden>{emoji}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2 font-semibold">
+                      {project.brief?.name} <ArrowRight className="size-4 text-accent opacity-0 transition-opacity group-hover:opacity-100" />
+                    </span>
+                    <span className="mt-1 block text-sm text-muted">{blurb}</span>
+                    <span className="mt-3 flex flex-wrap gap-1.5">
+                      <Badge>{Object.keys(project.files).length} files</Badge>
+                      <Badge>{project.plan?.screens.length} screens</Badge>
+                      <Badge>{project.learning?.lessons.length} lessons</Badge>
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <RecentProjects />
       </main>
-    </div>
+      <footer className="border-t border-line py-6 text-center text-xs text-faint">
+        Lunor App Studio prototype · Apps run on Expo SDK 54 via Expo Snack · AI by Google Gemini
+      </footer>
+    </>
+  );
+}
+
+function RecentProjects() {
+  const mounted = useMounted();
+  const router = useRouter();
+  const projects = useProjects((s) => s.projects);
+  const remove = useProjects((s) => s.remove);
+  if (!mounted) return null;
+  const list = Object.values(projects).sort((a, b) => b.updatedAt - a.updatedAt);
+  if (list.length === 0) return null;
+
+  return (
+    <section className="mx-auto max-w-6xl px-4 pb-20">
+      <Eyebrow>Your projects</Eyebrow>
+      <ul className="mt-4 divide-y divide-line rounded-2xl border border-line bg-surface">
+        {list.map((p) => (
+          <li key={p.id} className="flex items-center gap-3 px-4 py-3">
+            <button onClick={() => router.push(`/studio/${p.id}`)} className="min-w-0 flex-1 text-left">
+              <p className="truncate font-medium">{p.brief?.name ?? p.idea}</p>
+              <p className="truncate text-xs text-muted">
+                {STAGE_META[p.currentStage].label} · {Object.keys(p.files).length} files · {p.progress.xp} XP
+                {p.isSample && " · sample"}
+              </p>
+            </button>
+            <button
+              onClick={() => remove(p.id)}
+              aria-label={`Delete ${p.brief?.name ?? "project"}`}
+              className="rounded-lg p-2 text-faint hover:bg-surface-3 hover:text-accent"
+            >
+              <Trash2 className="size-4" />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
