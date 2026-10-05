@@ -67,7 +67,7 @@
       "id": "milestone-2",
       "kind": "milestone",
       "title": "Milestone 3: Check-ins, Streaks & Weekly View",
-      "notes": "- Implemented daily check-ins with instant toggle feedback, updating streak counters in real time.\n- Added intelligent streak calculation: incrementing on successful daily completion and resetting to 0 if a past day was missed.\n- Built a 7-day calendar progress grid in ProgressScreen visualizing weekly consistency per habit.\n- Created a reusable EmptyState component to guide users when no items are present.\nTry it: Tap the checkmark button on any habit card in Today to complete it, watch your streak count update instantly, and check the Progress tab!\n<<<END FILE>>>",
+      "notes": "- Implemented daily check-ins with instant toggle feedback, updating streak counters in real time.\n- Added intelligent streak calculation: incrementing on successful daily completion and resetting to 0 if a past day was missed.\n- Built a 7-day calendar progress grid in ProgressScreen visualizing weekly consistency per habit.\n- Created a reusable EmptyState component to guide users when no items are present.\nTry it: Tap the checkmark button on any habit card in Today to complete it, watch your streak count update instantly, and check the Progress tab!",
       "changedFiles": [
         "src/components/EmptyState.js",
         "src/components/HabitCard.js",

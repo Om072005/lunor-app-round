@@ -1,0 +1,1010 @@
+{
+  "id": "expense-splitter",
+  "idea": "An expense splitter for roommates that tracks shared bills and shows who owes whom",
+  "createdAt": 1791214071786,
+  "updatedAt": 1791214071786,
+  "currentStage": "build",
+  "answers": {
+    "offline_needs": [
+      "Yes, full offline support is needed"
+    ],
+    "core_loop": [
+      "Mark debts as paid manually"
+    ],
+    "sharing_mechanism": [
+      "Unique invite link sent via text or chat"
+    ]
+  },
+  "planApproved": true,
+  "files": {
+    "src/theme.js": "export const theme = {\n  colors: {\n    primary: '#10B981', // Emerald green for money/settled\n    primaryDark: '#059669',\n    background: '#F9FAFB',\n    card: '#FFFFFF',\n    text: '#1F2937',\n    textMuted: '#6B7280',\n    border: '#E5E7EB',\n    danger: '#EF4444',\n    warning: '#F59E0B',\n    tint: '#10B981',\n  },\n  spacing: {\n    xs: 4,\n    sm: 8,\n    md: 16,\n    lg: 24,\n    xl: 32,\n  },\n  borderRadius: {\n    sm: 6,\n    md: 12,\n    lg: 16,\n    pill: 9999,\n  },\n};\n",
+    "src/data/seedData.js": "export const initialRoommates = [\n  { id: '1', name: 'Alex (You)', isUser: true },\n  { id: '2', name: 'Jordan', isUser: false },\n  { id: '3', name: 'Taylor', isUser: false },\n];\n\nexport const initialExpenses = [\n  {\n    id: 'exp-1',\n    title: 'Groceries (Trader Joes)',\n    amount: 75.50,\n    paidBy: '1',\n    splitBetween: ['1', '2', '3'],\n    receiptUri: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400',\n    date: new Date(Date.now() - 86400000 * 2).toISOString(),\n  },\n  {\n    id: 'exp-2',\n    title: 'High-speed Internet',\n    amount: 60.00,\n    paidBy: '2',\n    splitBetween: ['1', '2', '3'],\n    receiptUri: '',\n    date: new Date(Date.now() - 86400000 * 5).toISOString(),\n  },\n];\n\nexport const initialSettlements = [];\n",
+    "src/screens/HomeScreen.js": "import React, { useContext } from 'react';\nimport { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';\nimport { Ionicons } from '@expo/vector-icons';\nimport { theme } from '../theme';\nimport { ExpenseContext } from '../context/ExpenseContext';\nimport { calculateDebts } from './BalancesScreen';\nimport EmptyState from '../components/EmptyState';\n\nexport default function HomeScreen({ navigation }) {\n  const { expenses, roommates, settlements } = useContext(ExpenseContext);\n\n  // Compute live totals from real state\n  const totalSpent = expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);\n\n  // Find the current user's net balance\n  const userRoommate = roommates.find(r => r.isUser);\n  const { balances } = calculateDebts(roommates, expenses, settlements);\n  const userBalance = userRoommate ? (balances[userRoommate.id] || 0) : 0;\n\n  // Get the 3 most recent expenses\n  const recentExpenses = expenses.slice(0, 3);\n\n  return (\n    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>\n      {/* Household Summary Card */}\n      <View style={styles.summaryCard}>\n        <Text style={styles.summaryLabel}>Total Household Spend</Text>\n        <Text style={styles.summaryAmount}>${totalSpent.toFixed(2)}</Text>\n        <Text style={styles.summarySub}>Split across {roommates.length} roommates</Text>\n\n        {/* User's Net Balance Highlight */}\n        <View style={styles.userBalanceContainer}>\n          <Ionicons \n            name={userBalance >= 0 ? \"arrow-up-circle\" : \"arrow-down-circle\"} \n            size={20} \n            color={userBalance >= 0 ? theme.colors.primary : theme.colors.danger} \n          />\n          <Text style={styles.userBalanceText}>\n            {userBalance > 0.01 ? (\n              <Text>You are owed <Text style={styles.bold}>${userBalance.toFixed(2)}</Text> overall</Text>\n            ) : userBalance < -0.01 ? (\n              <Text>You owe <Text style={styles.bold}>${Math.abs(userBalance).toFixed(2)}</Text> overall</Text>\n            ) : (\n              <Text>You are completely settled up!</Text>\n            )}\n          </Text>\n        </View>\n\n        <View style={styles.actionRow}>\n          <TouchableOpacity \n            style={[styles.button, styles.primaryButton]}\n            onPress={() => navigation.navigate('AddExpense')}\n          >\n            <Ionicons name=\"add\" size={18} color=\"#FFFFFF\" />\n            <Text style={styles.primaryButtonText}>Add Expense</Text>\n          </TouchableOpacity>\n\n          <TouchableOpacity \n            style={[styles.button, styles.secondaryButton]}\n            onPress={() => navigation.navigate('BalancesTab')}\n          >\n            <Ionicons name=\"swap-horizontal\" size={18} color={theme.colors.primary} />\n            <Text style={styles.secondaryButtonText}>View Balances</Text>\n          </TouchableOpacity>\n        </View>\n      </View>\n\n      {/* Recent Activity Header */}\n      <View style={styles.sectionHeader}>\n        <Text style={styles.sectionTitle}>Recent Expenses</Text>\n        <TouchableOpacity onPress={() => navigation.navigate('ExpensesTab')}>\n          <Text style={styles.seeAllText}>See All</Text>\n        </TouchableOpacity>\n      </View>\n\n      {/* Recent List Preview */}\n      {recentExpenses.length === 0 ? (\n        <EmptyState\n          icon=\"receipt-outline\"\n          title=\"No expenses logged yet\"\n          description=\"Keep track of shared groceries, bills, and rent easily.\"\n          actionLabel=\"Add First Expense\"\n          onAction={() => navigation.navigate('AddExpense')}\n        />\n      ) : (\n        recentExpenses.map((exp) => {\n          const payer = roommates.find(r => r.id === exp.paidBy);\n          const payerName = payer ? (payer.isUser ? 'You' : payer.name) : 'Someone';\n          \n          return (\n            <TouchableOpacity \n              key={exp.id} \n              style={styles.expenseCard}\n              onPress={() => navigation.navigate('ReceiptDetail', { expense: exp })}\n            >\n              <View style={styles.expenseIconContainer}>\n                <Ionicons name=\"receipt-outline\" size={20} color={theme.colors.primary} />\n              </View>\n              <View style={styles.expenseDetails}>\n                <Text style={styles.expenseTitle}>{exp.title}</Text>\n                <Text style={styles.expenseMeta}>Paid by {payerName} • {new Date(exp.date).toLocaleDateString()}</Text>\n              </View>\n              <Text style={styles.expenseAmount}>${Number(exp.amount).toFixed(2)}</Text>\n            </TouchableOpacity>\n          );\n        })\n      )}\n    </ScrollView>\n  );\n}\n\nconst styles = StyleSheet.create({\n  container: {\n    flex: 1,\n    backgroundColor: theme.colors.background,\n  },\n  contentContainer: {\n    padding: theme.spacing.md,\n  },\n  summaryCard: {\n    backgroundColor: theme.colors.card,\n    borderRadius: theme.borderRadius.lg,\n    padding: theme.spacing.lg,\n    borderWidth: 1,\n    borderColor: theme.colors.border,\n    marginBottom: theme.spacing.lg,\n    shadowColor: '#000',\n    shadowOffset: { width: 0, height: 2 },\n    shadowOpacity: 0.05,\n    shadowRadius: 8,\n    elevation: 2,\n  },\n  summaryLabel: {\n    fontSize: 14,\n    color: theme.colors.textMuted,\n    fontWeight: '500',\n  },\n  summaryAmount: {\n    fontSize: 36,\n    fontWeight: 'bold',\n    color: theme.colors.text,\n    marginVertical: theme.spacing.xs,\n  },\n  summarySub: {\n    fontSize: 13,\n    color: theme.colors.textMuted,\n    marginBottom: theme.spacing.md,\n  },\n  userBalanceContainer: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    backgroundColor: theme.colors.background,\n    padding: 12,\n    borderRadius: theme.borderRadius.md,\n    marginBottom: theme.spacing.md,\n    gap: 8,\n    borderWidth: 1,\n    borderColor: theme.colors.border,\n  },\n  userBalanceText: {\n    fontSize: 13,\n    color: theme.colors.text,\n  },\n  bold: {\n    fontWeight: 'bold',\n  },\n  actionRow: {\n    flexDirection: 'row',\n    gap: theme.spacing.sm,\n  },\n  button: {\n    flex: 1,\n    flexDirection: 'row',\n    alignItems: 'center',\n    justifyContent: 'center',\n    paddingVertical: 12,\n    borderRadius: theme.borderRadius.md,\n    gap: 6,\n  },\n  primaryButton: {\n    backgroundColor: theme.colors.primary,\n  },\n  primaryButtonText: {\n    color: '#FFFFFF',\n    fontWeight: '600',\n    fontSize: 14,\n  },\n  secondaryButton: {\n    backgroundColor: '#ECFDF5',\n    borderWidth: 1,\n    borderColor: '#A7F3D0',\n  },\n  secondaryButtonText: {\n    color: theme.colors.primary,\n    fontWeight: '600',\n    fontSize: 14,\n  },\n  sectionHeader: {\n    flexDirection: 'row',\n    justifyContent: 'space-between',\n    alignItems: 'center',\n    marginBottom: theme.spacing.sm,\n  },\n  sectionTitle: {\n    fontSize: 18,\n    fontWeight: '600',\n    color: theme.colors.text,\n  },\n  seeAllText: {\n    fontSize: 14,\n    color: theme.colors.primary,\n    fontWeight: '600',\n  },\n  expenseCard: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    backgroundColor: theme.colors.card,\n    padding: theme.spacing.md,\n    borderRadius: theme.borderRadius.md,\n    marginBottom: theme.spacing.sm,\n    borderWidth: 1,\n    borderColor: theme.colors.border,\n  },\n  expenseIconContainer: {\n    width: 40,\n    height: 40,\n    borderRadius: 20,\n    backgroundColor: '#ECFDF5',\n    justifyContent: 'center',\n    alignItems: 'center',\n    marginRight: theme.spacing.md,\n  },\n  expenseDetails: {\n    flex: 1,\n  },\n  expenseTitle: {\n    fontSize: 15,\n    fontWeight: '600',\n    color: theme.colors.text,\n  },\n  expenseMeta: {\n    fontSize: 12,\n    color: theme.colors.textMuted,\n    marginTop: 2,\n  },\n  expenseAmount: {\n    fontSize: 16,\n    fontWeight: '600',\n    color: theme.colors.text,\n  },\n});\n",
+    "src/screens/ExpensesScreen.js": "import React, { useContext, useState } from 'react';\nimport { View, StyleSheet, FlatList, TextInput } from 'react-native';\nimport { Ionicons } from '@expo/vector-icons';\nimport { theme } from '../theme';\nimport { ExpenseContext } from '../context/ExpenseContext';\nimport ExpenseItem from '../components/ExpenseItem';\n\nexport default function ExpensesScreen({ navigation }) {\n  const { expenses, roommates } = useContext(ExpenseContext);\n  const [search, setSearch] = useState('');\n\n  // Filter expenses by search query\n  const filteredExpenses = expenses.filter(item =>\n    item.title.toLowerCase().includes(search.toLowerCase())\n  );\n\n  return (\n    <View style={styles.container}>\n      <View style={styles.searchContainer}>\n        <Ionicons name=\"search\" size={18} color={theme.colors.textMuted} style={styles.searchIcon} />\n        <TextInput\n          style={styles.searchInput}\n          placeholder=\"Search household expenses...\"\n          placeholderTextColor={theme.colors.textMuted}\n          value={search}\n          onChangeText={setSearch}\n        />\n      </View>\n\n      <FlatList\n        data={filteredExpenses}\n        keyExtractor={(item) => item.id}\n        contentContainerStyle={styles.listContainer}\n        renderItem={({ item }) => (\n          <ExpenseItem\n            expense={item}\n            roommates={roommates}\n            onPress={() => navigation.navigate('ReceiptDetail', { expense: item })}\n          />\n        )}\n      />\n    </View>\n  );\n}\n\nconst styles = StyleSheet.create({\n  container: {\n    flex: 1,\n    backgroundColor: theme.colors.background,\n  },\n  searchContainer: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    backgroundColor: theme.colors.card,\n    margin: theme.spacing.md,\n    marginBottom: 0,\n    borderRadius: theme.borderRadius.md,\n    borderWidth: 1,\n    borderColor: theme.colors.border,\n    paddingHorizontal: 12,\n  },\n  searchIcon: {\n    marginRight: 8,\n  },\n  searchInput: {\n    flex: 1,\n    paddingVertical: 12,\n    fontSize: 14,\n    color: theme.colors.text,\n  },\n  listContainer: {\n    padding: theme.spacing.md,\n  },\n});\n",
+    "src/screens/AddExpenseScreen.js": "import React, { useState, useContext } from 'react';\nimport { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Image } from 'react-native';\nimport { Ionicons } from '@expo/vector-icons';\nimport { theme } from '../theme';\nimport { ExpenseContext } from '../context/ExpenseContext';\n\nexport default function AddExpenseScreen({ navigation }) {\n  const { roommates, addExpense } = useContext(ExpenseContext);\n\n  const [title, setTitle] = useState('');\n  const [amount, setAmount] = useState('');\n  const [paidBy, setPaidBy] = useState(roommates[0]?.id || '1');\n  const [splitBetween, setSplitBetween] = useState(roommates.map(r => r.id));\n  const [receiptUri, setReceiptUri] = useState('');\n  const [error, setError] = useState('');\n\n  // Toggle roommate inclusion in the split\n  const toggleSplitMember = (id) => {\n    if (splitBetween.includes(id)) {\n      if (splitBetween.length === 1) return; // Must keep at least 1 person\n      setSplitBetween(splitBetween.filter(item => item !== id));\n    } else {\n      setSplitBetween([...splitBetween, id]);\n    }\n  };\n\n  const handleSave = () => {\n    if (!title.trim()) {\n      setError('Please enter a description');\n      return;\n    }\n    const numAmount = parseFloat(amount);\n    if (isNaN(numAmount) || numAmount <= 0) {\n      setError('Please enter a valid amount');\n      return;\n    }\n\n    addExpense({\n      title: title.trim(),\n      amount: numAmount,\n      paidBy,\n      splitBetween,\n      receiptUri: receiptUri.trim(),\n    });\n\n    navigation.goBack();\n  };\n\n  return (\n    <ScrollView style={styles.container} contentContainerStyle={styles.content}>\n      {error ? <Text style={styles.errorText}>{error}</Text> : null}\n\n      <Text style={styles.label}>Description</Text>\n      <TextInput\n        style={styles.input}\n        placeholder=\"e.g. Groceries, Electricity, Wi-Fi\"\n        placeholderTextColor={theme.colors.textMuted}\n        value={title}\n        onChangeText={setTitle}\n      />\n\n      <Text style={styles.label}>Amount ($)</Text>\n      <TextInput\n        style={styles.input}\n        placeholder=\"0.00\"\n        placeholderTextColor={theme.colors.textMuted}\n        keyboardType=\"decimal-pad\"\n        value={amount}\n        onChangeText={setAmount}\n      />\n\n      <Text style={styles.label}>Paid By</Text>\n      <View style={styles.pillRow}>\n        {roommates.map(r => (\n          <TouchableOpacity\n            key={r.id}\n            style={[styles.pill, paidBy === r.id && styles.pillActive]}\n            onPress={() => setPaidBy(r.id)}\n          >\n            <Text style={[styles.pillText, paidBy === r.id && styles.pillTextActive]}>{r.name}</Text>\n          </TouchableOpacity>\n        ))}\n      </View>\n\n      <Text style={styles.label}>Split Between</Text>\n      <View style={styles.pillRow}>\n        {roommates.map(r => {\n          const isSelected = splitBetween.includes(r.id);\n          return (\n            <TouchableOpacity\n              key={r.id}\n              style={[styles.pill, isSelected && styles.pillActiveSecondary]}\n              onPress={() => toggleSplitMember(r.id)}\n            >\n              <Ionicons \n                name={isSelected ? \"checkbox-outline\" : \"square-outline\"} \n                size={16} \n                color={isSelected ? theme.colors.primary : theme.colors.textMuted} \n              />\n              <Text style={[styles.pillText, isSelected && styles.pillTextActiveSecondary]}>{r.name}</Text>\n            </TouchableOpacity>\n          );\n        })}\n      </View>\n\n      <Text style={styles.label}>Receipt Photo (Image URL or Sample)</Text>\n      <TextInput\n        style={styles.input}\n        placeholder=\"Paste image URL for receipt preview\"\n        placeholderTextColor={theme.colors.textMuted}\n        value={receiptUri}\n        onChangeText={setReceiptUri}\n      />\n\n      {receiptUri ? (\n        <Image source={{ uri: receiptUri }} style={styles.receiptPreview} resizeMode=\"cover\" />\n      ) : null}\n\n      <TouchableOpacity style={styles.saveButton} onPress={handleSave}>\n        <Text style={styles.saveButtonText}>Save Expense</Text>\n      </TouchableOpacity>\n    </ScrollView>\n  );\n}\n\nconst styles = StyleSheet.create({\n  container: {\n    flex: 1,\n    backgroundColor: theme.colors.background,\n  },\n  content: {\n    padding: theme.spacing.md,\n  },\n  errorText: {\n    color: theme.colors.danger,\n    marginBottom: theme.spacing.sm,\n    fontWeight: '500',\n  },\n  label: {\n    fontSize: 14,\n    fontWeight: '600',\n    color: theme.colors.text,\n    marginBottom: theme.spacing.xs,\n    marginTop: theme.spacing.md,\n  },\n  input: {\n    backgroundColor: theme.colors.card,\n    borderWidth: 1,\n    borderColor: theme.colors.border,\n    borderRadius: theme.borderRadius.md,\n    padding: 12,\n    fontSize: 15,\n    color: theme.colors.text,\n  },\n  pillRow: {\n    flexDirection: 'row',\n    flexWrap: 'wrap',\n    gap: theme.spacing.sm,\n  },\n  pill: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    paddingVertical: 8,\n    paddingHorizontal: 12,\n    borderRadius: theme.borderRadius.pill,\n    borderWidth: 1,\n    borderColor: theme.colors.border,\n    backgroundColor: theme.colors.card,\n    gap: 6,\n  },\n  pillActive: {\n    backgroundColor: theme.colors.primary,\n    borderColor: theme.colors.primary,\n  },\n  pillText: {\n    fontSize: 13,\n    color: theme.colors.text,\n    fontWeight: '500',\n  },\n  pillTextActive: {\n    color: '#FFFFFF',\n  },\n  pillActiveSecondary: {\n    backgroundColor: '#ECFDF5',\n    borderColor: theme.colors.primary,\n  },\n  pillTextActiveSecondary: {\n    color: theme.colors.primary,\n  },\n  receiptPreview: {\n    width: '100T',\n    height: 150,\n    borderRadius: theme.borderRadius.md,\n    marginTop: theme.spacing.sm,\n  },\n  saveButton: {\n    backgroundColor: theme.colors.primary,\n    borderRadius: theme.borderRadius.md,\n    padding: 16,\n    alignItems: 'center',\n    marginTop: theme.spacing.xl,\n    marginBottom: theme.spacing.xl,\n  },\n  saveButtonText: {\n    color: '#FFFFFF',\n    fontWeight: 'bold',\n    fontSize: 16,\n  },\n});\n",
+    "src/screens/BalancesScreen.js": "import React, { useContext } from 'react';\nimport { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';\nimport { Ionicons } from '@expo/vector-icons';\nimport { theme } from '../theme';\nimport { ExpenseContext } from '../context/ExpenseContext';\nimport DebtCard from '../components/DebtCard';\nimport EmptyState from '../components/EmptyState';\n\n// Helper function to calculate net balances and simplify active debts\nexport function calculateDebts(roommates, expenses, settlements) {\n  const balances = {};\n  roommates.forEach(r => {\n    balances[r.id] = 0;\n  });\n\n  // 1. Process all expenses: Payer gets credited, split members get debited\n  expenses.forEach(exp => {\n    const amount = Number(exp.amount) || 0;\n    const payerId = exp.paidBy;\n    const splitIds = exp.splitBetween || [];\n\n    if (splitIds.length === 0) return;\n\n    const share = amount / splitIds.length;\n\n    if (balances[payerId] !== undefined) {\n      balances[payerId] += amount;\n    }\n\n    splitIds.forEach(id => {\n      if (balances[id] !== undefined) {\n        balances[id] -= share;\n      }\n    });\n  });\n\n  // 2. Process all manual settlements: Sender balance goes up, receiver goes down\n  settlements.forEach(set => {\n    const amount = Number(set.amount) || 0;\n    const fromId = set.fromId;\n    const toId = set.toId;\n\n    if (balances[fromId] !== undefined) {\n      balances[fromId] += amount;\n    }\n    if (balances[toId] !== undefined) {\n      balances[toId] -= amount;\n    }\n  });\n\n  // 3. Separate debtors and creditors to run transaction minimization\n  const debtors = [];\n  const creditors = [];\n\n  Object.keys(balances).forEach(id => {\n    const bal = balances[id];\n    if (bal < -0.01) {\n      debtors.push({ id, balance: bal });\n    } else if (bal > 0.01) {\n      creditors.push({ id, balance: bal });\n    }\n  });\n\n  debtors.sort((a, b) => a.balance - b.balance);\n  creditors.sort((a, b) => b.balance - a.balance);\n\n  const debts = [];\n  let dIdx = 0;\n  let cIdx = 0;\n\n  const activeDebtors = debtors.map(d => ({ ...d }));\n  const activeCreditors = creditors.map(c => ({ ...c }));\n\n  // Greedy matching to minimize transactions\n  while (dIdx < activeDebtors.length && cIdx < activeCreditors.length) {\n    const debtor = activeDebtors[dIdx];\n    const creditor = activeCreditors[cIdx];\n\n    const owedAmount = Math.min(Math.abs(debtor.balance), creditor.balance);\n\n    if (owedAmount > 0.01) {\n      debts.push({\n        fromId: debtor.id,\n        toId: creditor.id,\n        amount: owedAmount,\n      });\n    }\n\n    debtor.balance += owedAmount;\n    creditor.balance -= owedAmount;\n\n    if (Math.abs(debtor.balance) < 0.01) dIdx++;\n    if (creditor.balance < 0.01) cIdx++;\n  }\n\n  return { balances, debts };\n}\n\nexport default function BalancesScreen({ navigation }) {\n  const { roommates, expenses, settlements, addSettlement, deleteSettlement } = useContext(ExpenseContext);\n\n  const { balances, debts } = calculateDebts(roommates, expenses, settlements);\n\n  const handleSettle = (fromId, toId, amount) => {\n    addSettlement({\n      fromId,\n      toId,\n      amount,\n    });\n  };\n\n  return (\n    <ScrollView style={styles.container} contentContainerStyle={styles.content}>\n      {/* Net Balances Summary List */}\n      <Text style={styles.sectionTitle}>Roommate Balances</Text>\n      <View style={styles.balanceList}>\n        {roommates.map(r => {\n          const bal = balances[r.id] || 0;\n          const isOwed = bal > 0.01;\n          const owes = bal < -0.01;\n          \n          return (\n            <View key={r.id} style={styles.balanceRow}>\n              <View style={styles.roommateInfo}>\n                <View style={[styles.avatar, r.isUser && styles.userAvatar]}>\n                  <Text style={styles.avatarText}>{r.name[0]}</Text>\n                </View>\n                <Text style={styles.roommateName}>{r.name}</Text>\n              </View>\n              <Text style={[\n                styles.balanceAmount,\n                isOwed && styles.textOwed,\n                owes && styles.textOwes\n              ]}>\n                {isOwed ? `is owed $${bal.toFixed(2)}` : owes ? `owes $${Math.abs(bal).toFixed(2)}` : 'settled up'}\n              </Text>\n            </View>\n          );\n        })}\n      </View>\n\n      {/* Simplified Debts Section */}\n      <Text style={styles.sectionTitle}>Active Debts to Settle</Text>\n      {debts.length === 0 ? (\n        <EmptyState\n          icon=\"checkmark-circle-outline\"\n          title=\"All Settled Up!\"\n          description=\"No outstanding household debts. Everyone is perfectly square.\"\n          actionLabel=\"Log an Expense\"\n          onAction={() => navigation.navigate('AddExpense')}\n        />\n      ) : (\n        debts.map((debt, index) => (\n          <DebtCard\n            key={`${debt.fromId}-${debt.toId}-${index}`}\n            debt={debt}\n            roommates={roommates}\n            onSettle={handleSettle}\n          />\n        ))\n      )}\n\n      {/* History of Settlements */}\n      {settlements && settlements.length > 0 ? (\n        <View style={styles.historySection}>\n          <Text style={styles.sectionTitle}>Recent Settlements</Text>\n          {settlements.map(set => {\n            const sender = roommates.find(r => r.id === set.fromId);\n            const receiver = roommates.find(r => r.id === set.toId);\n            return (\n              <View key={set.id} style={styles.historyCard}>\n                <Ionicons name=\"checkmark-circle\" size={18} color={theme.colors.primary} />\n                <Text style={styles.historyText}>\n                  <Text style={styles.bold}>{sender?.name || 'Someone'}</Text> paid{' '}\n                  <Text style={styles.bold}>{receiver?.name || 'Someone'}</Text>{' '}\n                  <Text style={styles.bold}>${Number(set.amount).toFixed(2)}</Text>\n                </Text>\n              </View>\n            );\n          })}\n        </View>\n      ) : null}\n    </ScrollView>\n  );\n}\n\nconst styles = StyleSheet.create({\n  container: {\n    flex: 1,\n    backgroundColor: theme.colors.background,\n  },\n  content: {\n    padding: theme.spacing.md,\n  },\n  sectionTitle: {\n    fontSize: 16,\n    fontWeight: '700',\n    color: theme.colors.text,\n    marginTop: theme.spacing.md,\n    marginBottom: theme.spacing.sm,\n  },\n  balanceList: {\n    backgroundColor: theme.colors.card,\n    borderRadius: theme.borderRadius.lg,\n    borderWidth: 1,\n    borderColor: theme.colors.border,\n    padding: theme.spacing.md,\n    marginBottom: theme.spacing.md,\n  },\n  balanceRow: {\n    flexDirection: 'row',\n    justifyContent: 'space-between',\n    alignItems: 'center',\n    paddingVertical: theme.spacing.sm,\n    borderBottomWidth: 1,\n    borderBottomColor: theme.colors.border,\n  },\n  roommateInfo: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    gap: theme.spacing.sm,\n  },\n  avatar: {\n    width: 28,\n    height: 28,\n    borderRadius: 14,\n    backgroundColor: '#E5E7EB',\n    alignItems: 'center',\n    justifyContent: 'center',\n  },\n  userAvatar: {\n    backgroundColor: '#D1FAE5',\n  },\n  avatarText: {\n    fontSize: 11,\n    fontWeight: 'bold',\n    color: theme.colors.text,\n  },\n  roommateName: {\n    fontSize: 14,\n    fontWeight: '500',\n    color: theme.colors.text,\n  },\n  balanceAmount: {\n    fontSize: 13,\n    color: theme.colors.textMuted,\n  },\n  textOwed: {\n    color: theme.colors.primary,\n    fontWeight: '600',\n  },\n  textOwes: {\n    color: theme.colors.danger,\n    fontWeight: '600',\n  },\n  historySection: {\n    marginTop: theme.spacing.lg,\n  },\n  historyCard: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    backgroundColor: theme.colors.card,\n    padding: theme.spacing.md,\n    borderRadius: theme.borderRadius.md,\n    borderWidth: 1,\n    borderColor: theme.colors.border,\n    marginBottom: theme.spacing.xs,\n    gap: theme.spacing.sm,\n  },\n  historyText: {\n    fontSize: 13,\n    color: theme.colors.text,\n    flex: 1,\n  },\n  bold: {\n    fontWeight: '600',\n  },\n});\n",
+    "src/screens/SettingsScreen.js": "import React, { useState, useContext } from 'react';\nimport { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Share } from 'react-native';\nimport { Ionicons } from '@expo/vector-icons';\nimport { theme } from '../theme';\nimport { ExpenseContext } from '../context/ExpenseContext';\n\nexport default function SettingsScreen() {\n  const { roommates, expenses, settlements, saveRoommates, importHouseholdState } = useContext(ExpenseContext);\n  const [newRoommateName, setNewRoommateName] = useState('');\n  const [importPayload, setImportPayload] = useState('');\n  const [statusMessage, setStatusMessage] = useState('');\n  const [statusType, setStatusType] = useState('success'); // 'success' | 'error'\n\n  // Add a new roommate to the household\n  const handleAddRoommate = () => {\n    if (!newRoommateName.trim()) return;\n    const newRoommate = {\n      id: 'room-' + Date.now(),\n      name: newRoommateName.trim(),\n      isUser: false,\n    };\n    saveRoommates([...roommates, newRoommate]);\n    setNewRoommateName('');\n    showStatus('Roommate added successfully!', 'success');\n  };\n\n  const showStatus = (msg, type = 'success') => {\n    setStatusMessage(msg);\n    setStatusType(type);\n    setTimeout(() => setStatusMessage(''), 4000);\n  };\n\n  // Generate a Base64 payload representing the entire household state\n  const generatePayload = () => {\n    try {\n      const state = { roommates, expenses, settlements };\n      const jsonString = JSON.stringify(state);\n      // UTF-8 safe base64 encoding\n      const payload = btoa(unescape(encodeURIComponent(jsonString)));\n      return payload;\n    } catch (e) {\n      console.error('Failed to generate payload', e);\n      return '';\n    }\n  };\n\n  // Share the payload using the native Share API\n  const handleSharePayload = async () => {\n    const payload = generatePayload();\n    if (!payload) return;\n    try {\n      await Share.share({\n        message: `Join my SplitFlat household! Import this state code in Settings:\\n\\n${payload}`,\n        title: 'SplitFlat Household Invite',\n      });\n    } catch (error) {\n      showStatus('Failed to share payload', 'error');\n    }\n  };\n\n  // Import a household state from a pasted Base64 payload\n  const handleImportPayload = () => {\n    if (!importPayload.trim()) {\n      showStatus('Please paste a valid state code', 'error');\n      return;\n    }\n    try {\n      // UTF-8 safe base64 decoding\n      const decodedJson = decodeURIComponent(escape(atob(importPayload.trim())));\n      const parsedState = JSON.parse(decodedJson);\n\n      if (parsedState && Array.isArray(parsedState.roommates) && Array.isArray(parsedState.expenses)) {\n        importHouseholdState(parsedState);\n        setImportPayload('');\n        showStatus('Household imported successfully!', 'success');\n      } else {\n        showStatus('Invalid payload format', 'error');\n      }\n    } catch (e) {\n      showStatus('Failed to parse state code. Make sure it is copied correctly.', 'error');\n    }\n  };\n\n  return (\n    <ScrollView style={styles.container} contentContainerStyle={styles.content}>\n      {statusMessage ? (\n        <View style={[styles.statusBanner, statusType === 'error' && styles.statusBannerError]}>\n          <Ionicons \n            name={statusType === 'success' ? \"checkmark-circle\" : \"alert-circle\"} \n            size={18} \n            color={statusType === 'success' ? theme.colors.primary : theme.colors.danger} \n          />\n          <Text style={[styles.statusText, statusType === 'error' && styles.statusTextError]}>\n            {statusMessage}\n          </Text>\n        </View>\n      ) : null}\n\n      {/* Roommate Management Section */}\n      <View style={styles.section}>\n        <Text style={styles.sectionTitle}>Manage Roommates</Text>\n        <Text style={styles.sectionSubtitle}>Add or view members of this household.</Text>\n\n        <View style={styles.addRoommateRow}>\n          <TextInput\n            style={styles.input}\n            placeholder=\"Roommate's name...\"\n            placeholderTextColor={theme.colors.textMuted}\n            value={newRoommateName}\n            onChangeText={setNewRoommateName}\n          />\n          <TouchableOpacity style={styles.addButton} onPress={handleAddRoommate}>\n            <Ionicons name=\"add\" size={20} color=\"#FFFFFF\" />\n          </TouchableOpacity>\n        </View>\n\n        <View style={styles.roommateList}>\n          {roommates.map(r => (\n            <View key={r.id} style={styles.roommateRow}>\n              <View style={styles.roommateInfo}>\n                <View style={[styles.avatar, r.isUser && styles.userAvatar]}>\n                  <Text style={styles.avatarText}>{r.name[0]}</Text>\n                </View>\n                <Text style={styles.roommateName}>{r.name} {r.isUser ? '(You)' : ''}</Text>\n              </View>\n              {r.isUser ? (\n                <Text style={styles.userTag}>Owner</Text>\n              ) : (\n                <Text style={styles.memberTag}>Member</Text>\n              )}\n            </View>\n          ))}\n        </View>\n      </View>\n\n      {/* Invite & Sync Section */}\n      <View style={styles.section}>\n        <Text style={styles.sectionTitle}>Household Invite & Sync</Text>\n        <Text style={styles.sectionSubtitle}>\n          Generate a secure, offline-first payload to share your household state with roommates, or import an existing state.\n        </Text>\n\n        <TouchableOpacity style={styles.shareButton} onPress={handleSharePayload}>\n          <Ionicons name=\"share-social-outline\" size={18} color=\"#FFFFFF\" />\n          <Text style={styles.shareButtonText}>Share Household State</Text>\n        </TouchableOpacity>\n\n        <View style={styles.divider} />\n\n        <Text style={styles.subLabel}>Import Household State</Text>\n        <TextInput\n          style={[styles.input, styles.textArea]}\n          placeholder=\"Paste the state code shared by your roommate...\"\n          placeholderTextColor={theme.colors.textMuted}\n          multiline\n          numberOfLines={4}\n          value={importPayload}\n          onChangeText={setImportPayload}\n        />\n        <TouchableOpacity style={styles.importButton} onPress={handleImportPayload}>\n          <Ionicons name=\"download-outline\" size={18} color={theme.colors.primary} />\n          <Text style={styles.importButtonText}>Import & Overwrite State</Text>\n        </TouchableOpacity>\n      </View>\n    </ScrollView>\n  );\n}\n\nconst styles = StyleSheet.create({\n  container: {\n    flex: 1,\n    backgroundColor: theme.colors.background,\n  },\n  content: {\n    padding: theme.spacing.md,\n  },\n  statusBanner: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    backgroundColor: '#ECFDF5',\n    padding: 12,\n    borderRadius: theme.borderRadius.md,\n    marginBottom: theme.spacing.md,\n    gap: 8,\n    borderWidth: 1,\n    borderColor: '#A7F3D0',\n  },\n  statusBannerError: {\n    backgroundColor: '#FEF2F2',\n    borderColor: '#FCA5A5',\n  },\n  statusText: {\n    fontSize: 13,\n    color: theme.colors.primary,\n    fontWeight: '600',\n  },\n  statusTextError: {\n    color: theme.colors.danger,\n  },\n  section: {\n    backgroundColor: theme.colors.card,\n    borderRadius: theme.borderRadius.lg,\n    padding: theme.spacing.md,\n    borderWidth: 1,\n    borderColor: theme.colors.border,\n    marginBottom: theme.spacing.md,\n  },\n  sectionTitle: {\n    fontSize: 16,\n    fontWeight: '700',\n    color: theme.colors.text,\n  },\n  sectionSubtitle: {\n    fontSize: 12,\n    color: theme.colors.textMuted,\n    marginTop: 2,\n    marginBottom: theme.spacing.md,\n    lineHeight: 16,\n  },\n  addRoommateRow: {\n    flexDirection: 'row',\n    gap: theme.spacing.sm,\n    marginBottom: theme.spacing.md,\n  },\n  input: {\n    flex: 1,\n    backgroundColor: theme.colors.background,\n    borderWidth: 1,\n    borderColor: theme.colors.border,\n    borderRadius: theme.borderRadius.md,\n    padding: 12,\n    fontSize: 14,\n    color: theme.colors.text,\n  },\n  textArea: {\n    height: 80,\n    textAlignVertical: 'top',\n    fontSize: 12,\n    fontFamily: 'monospace',\n    marginBottom: theme.spacing.sm,\n  },\n  addButton: {\n    backgroundColor: theme.colors.primary,\n    width: 46,\n    height: 46,\n    borderRadius: theme.borderRadius.md,\n    alignItems: 'center',\n    justifyContent: 'center',\n  },\n  roommateList: {\n    gap: theme.spacing.xs,\n  },\n  roommateRow: {\n    flexDirection: 'row',\n    justifyContent: 'space-between',\n    alignItems: 'center',\n    paddingVertical: theme.spacing.sm,\n    borderBottomWidth: 1,\n    borderBottomColor: theme.colors.border,\n  },\n  roommateInfo: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    gap: theme.spacing.sm,\n  },\n  avatar: {\n    width: 28,\n    height: 28,\n    borderRadius: 14,\n    backgroundColor: '#E5E7EB',\n    alignItems: 'center',\n    justifyContent: 'center',\n  },\n  userAvatar: {\n    backgroundColor: '#D1FAE5',\n  },\n  avatarText: {\n    fontSize: 11,\n    fontWeight: 'bold',\n    color: theme.colors.text,\n  },\n  roommateName: {\n    fontSize: 14,\n    color: theme.colors.text,\n    fontWeight: '500',\n  },\n  userTag: {\n    fontSize: 11,\n    color: theme.colors.primary,\n    fontWeight: '600',\n    backgroundColor: '#ECFDF5',\n    paddingVertical: 2,\n    paddingHorizontal: 8,\n    borderRadius: theme.borderRadius.pill,\n  },\n  memberTag: {\n    fontSize: 11,\n    color: theme.colors.textMuted,\n    fontWeight: '500',\n  },\n  shareButton: {\n    backgroundColor: theme.colors.primary,\n    flexDirection: 'row',\n    alignItems: 'center',\n    justifyContent: 'center',\n    padding: 14,\n    borderRadius: theme.borderRadius.md,\n    gap: 8,\n  },\n  shareButtonText: {\n    color: '#FFFFFF',\n    fontWeight: '600',\n    fontSize: 14,\n  },\n  divider: {\n    height: 1,\n    backgroundColor: theme.colors.border,\n    marginVertical: theme.spacing.lg,\n  },\n  subLabel: {\n    fontSize: 13,\n    fontWeight: '600',\n    color: theme.colors.text,\n    marginBottom: theme.spacing.xs,\n  },\n  importButton: {\n    backgroundColor: '#ECFDF5',\n    borderWidth: 1,\n    borderColor: '#A7F3D0',\n    flexDirection: 'row',\n    alignItems: 'center',\n    justifyContent: 'center',\n    padding: 12,\n    borderRadius: theme.borderRadius.md,\n    gap: 8,\n  },\n  importButtonText: {\n    color: theme.colors.primary,\n    fontWeight: '600',\n    fontSize: 13,\n  },\n});\n",
+    "src/screens/ReceiptDetailScreen.js": "import React, { useContext } from 'react';\nimport { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';\nimport { Ionicons } from '@expo/vector-icons';\nimport { theme } from '../theme';\nimport { ExpenseContext } from '../context/ExpenseContext';\n\nexport default function ReceiptDetailScreen({ route, navigation }) {\n  const { expense } = route.params || {};\n  const { roommates, deleteExpense } = useContext(ExpenseContext);\n\n  const payer = roommates.find(r => r.id === expense?.paidBy);\n\n  const handleDelete = () => {\n    deleteExpense(expense.id);\n    navigation.goBack();\n  };\n\n  return (\n    <View style={styles.container}>\n      <View style={styles.detailsHeader}>\n        <Text style={styles.title}>{expense?.title}</Text>\n        <Text style={styles.amount}>${Number(expense?.amount || 0).toFixed(2)}</Text>\n        <Text style={styles.meta}>Paid by {payer?.name || 'Someone'} on {new Date(expense?.date).toLocaleDateString()}</Text>\n      </View>\n\n      <View style={styles.receiptContainer}>\n        {expense?.receiptUri ? (\n          <Image source={{ uri: expense.receiptUri }} style={styles.image} resizeMode=\"contain\" />\n        ) : (\n          <View style={styles.noReceipt}>\n            <Ionicons name=\"receipt-outline\" size={48} color={theme.colors.textMuted} />\n            <Text style={styles.muted}>No receipt attached to this expense.</Text>\n          </View>\n        )}\n      </View>\n\n      <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>\n        <Ionicons name=\"trash-outline\" size={18} color={theme.colors.danger} />\n        <Text style={styles.deleteButtonText}>Delete Expense</Text>\n      </TouchableOpacity>\n    </View>\n  );\n}\n\nconst styles = StyleSheet.create({\n  container: {\n    flex: 1,\n    backgroundColor: theme.colors.background,\n    padding: theme.spacing.md,\n  },\n  detailsHeader: {\n    backgroundColor: theme.colors.card,\n    borderRadius: theme.borderRadius.md,\n    padding: theme.spacing.md,\n    borderWidth: 1,\n    borderColor: theme.colors.border,\n    marginBottom: theme.spacing.md,\n  },\n  title: {\n    fontSize: 18,\n    fontWeight: 'bold',\n    color: theme.colors.text,\n  },\n  amount: {\n    fontSize: 24,\n    fontWeight: 'bold',\n    color: theme.colors.primary,\n    marginTop: 4,\n  },\n  meta: {\n    fontSize: 13,\n    color: theme.colors.textMuted,\n    marginTop: 6,\n  },\n  receiptContainer: {\n    flex: 1,\n    backgroundColor: '#000000',\n    borderRadius: theme.borderRadius.md,\n    overflow: 'hidden',\n    justifyContent: 'center',\n    alignItems: 'center',\n  },\n  image: {\n    width: '100%',\n    height: '100%',\n  },\n  noReceipt: {\n    justifyContent: 'center',\n    alignItems: 'center',\n    padding: theme.spacing.lg,\n  },\n  muted: {\n    color: theme.colors.textMuted,\n    marginTop: theme.spacing.sm,\n  },\n  deleteButton: {\n    flexDirection: 'row',\n    alignItem: 'center',\n    justifyContent: 'center',\n    backgroundColor: '#FEF2F2',\n    borderWidth: 1,\n    borderColor: '#FCA5A5',\n    borderRadius: theme.borderRadius.md,\n    padding: 14,\n    marginTop: theme.spacing.md,\n    gap: 8,\n  },\n  deleteButtonText: {\n    color: theme.colors.danger,\n    fontWeight: '600',\n    fontSize: 15,\n  },\n});\n",
+    "App.js": "import React from 'react';\nimport { StatusBar } from 'expo-status-bar';\nimport { SafeAreaProvider } from 'react-native-safe-area-context';\nimport { NavigationContainer } from '@react-navigation/native';\nimport { createNativeStackNavigator } from '@react-navigation/native-stack';\nimport { createBottomTabNavigator } from '@react-navigation/bottom-tabs';\nimport { Ionicons } from '@expo/vector-icons';\n\nimport { theme } from './src/theme';\nimport { ExpenseProvider } from './src/context/ExpenseContext';\nimport HomeScreen from './src/screens/HomeScreen';\nimport ExpensesScreen from './src/screens/ExpensesScreen';\nimport AddExpenseScreen from './src/screens/AddExpenseScreen';\nimport BalancesScreen from './src/screens/BalancesScreen';\nimport SettingsScreen from './src/screens/SettingsScreen';\nimport ReceiptDetailScreen from './src/screens/ReceiptDetailScreen';\n\nconst Stack = createNativeStackNavigator();\nconst Tab = createBottomTabNavigator();\n\n// Bottom tabs navigator for primary app sections\nfunction MainTabs() {\n  return (\n    <Tab.Navigator\n      screenOptions={({ route }) => ({\n        headerShown: true,\n        headerStyle: { backgroundColor: theme.colors.card },\n        headerTintColor: theme.colors.text,\n        tabBarStyle: {\n          backgroundColor: theme.colors.card,\n          borderTopColor: theme.colors.border,\n          height: 60,\n          paddingBottom: 8,\n          paddingTop: 8,\n        },\n        tabBarActiveTintColor: theme.colors.primary,\n        tabBarInactiveTintColor: theme.colors.textMuted,\n        tabBarIcon: ({ focused, color, size }) => {\n          let iconName = 'home';\n          if (route.name === 'HomeTab') iconName = focused ? 'home' : 'home-outline';\n          else if (route.name === 'ExpensesTab') iconName = focused ? 'receipt' : 'receipt-outline';\n          else if (route.name === 'BalancesTab') iconName = focused ? 'swap-horizontal' : 'swap-horizontal-outline';\n          else if (route.name === 'SettingsTab') iconName = focused ? 'people' : 'people-outline';\n          return <Ionicons name={iconName} size={size} color={color} />;\n        },\n      })}\n    >\n      <Tab.Screen name=\"HomeTab\" component={HomeScreen} options={{ title: 'Overview' }} />\n      <Tab.Screen name=\"ExpensesTab\" component={ExpensesScreen} options={{ title: 'Expenses' }} />\n      <Tab.Screen name=\"BalancesTab\" component={BalancesScreen} options={{ title: 'Balances' }} />\n      <Tab.Screen name=\"SettingsTab\" component={SettingsScreen} options={{ title: 'Household' }} />\n    </Tab.Navigator>\n  );\n}\n\n// Root component wrapping navigation container and ExpenseProvider\nexport default function App() {\n  return (\n    <SafeAreaProvider>\n      <ExpenseProvider>\n        <NavigationContainer>\n          <StatusBar style=\"dark\" />\n          <Stack.Navigator screenOptions={{ headerShown: false }}>\n            <Stack.Screen name=\"Main\" component={MainTabs} />\n            <Stack.Screen \n              name=\"AddExpense\" \n              component={AddExpenseScreen} \n              options={{ headerShown: true, title: 'Add Expense', presentation: 'modal' }} \n            />\n            <Stack.Screen \n              name=\"ReceiptDetail\" \n              component={ReceiptDetailScreen} \n              options={{ headerShown: true, title: 'Receipt' }} \n            />\n          </Stack.Navigator>\n        </NavigationContainer>\n      </ExpenseProvider>\n    </SafeAreaProvider>\n  );\n}\n",
+    "src/context/ExpenseContext.js": "import React, { createContext, useState, useEffect } from 'react';\nimport AsyncStorage from '@react-native-async-storage/async-storage';\nimport { initialExpenses, initialRoommates, initialSettlements } from '../data/seedData';\n\nexport const ExpenseContext = createContext();\n\nconst STORAGE_KEYS = {\n  EXPENSES: '@SplitFlat:expenses',\n  ROOMMATES: '@SplitFlat:roommates',\n  SETTLEMENTS: '@SplitFlat:settlements',\n};\n\n// Provider component that wraps state and handles AsyncStorage load/save cycles\nexport const ExpenseProvider = ({ children }) => {\n  const [expenses, setExpenses] = useState(initialExpenses);\n  const [roommates, setRoommates] = useState(initialRoommates);\n  const [settlements, setSettlements] = useState(initialSettlements);\n  const [isLoading, setIsLoading] = useState(true);\n\n  // Load persisted data on mount\n  useEffect(() => {\n    const loadStoredData = async () => {\n      try {\n        const storedExp = await AsyncStorage.getItem(STORAGE_KEYS.EXPENSES);\n        const storedRoom = await AsyncStorage.getItem(STORAGE_KEYS.ROOMMATES);\n        const storedSettlements = await AsyncStorage.getItem(STORAGE_KEYS.SETTLEMENTS);\n\n        if (storedExp) setExpenses(JSON.parse(storedExp));\n        if (storedRoom) setRoommates(JSON.parse(storedRoom));\n        if (storedSettlements) setSettlements(JSON.parse(storedSettlements));\n      } catch (error) {\n        console.error('Failed to load local data', error);\n      } finally {\n        setIsLoading(false);\n      }\n    };\n    loadStoredData();\n  }, []);\n\n  // Save expenses when updated\n  const saveExpenses = async (newExpenses) => {\n    setExpenses(newExpenses);\n    try {\n      await AsyncStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(newExpenses));\n    } catch (error) {\n      console.error('Failed to save expenses', error);\n    }\n  };\n\n  // Save roommates when updated\n  const saveRoommates = async (newRoommates) => {\n    setRoommates(newRoommates);\n    try {\n      await AsyncStorage.setItem(STORAGE_KEYS.ROOMMATES, JSON.stringify(newRoommates));\n    } catch (error) {\n      console.error('Failed to save roommates', error);\n    }\n  };\n\n  // Save settlements when updated\n  const saveSettlements = async (newSettlements) => {\n    setSettlements(newSettlements);\n    try {\n      await AsyncStorage.setItem(STORAGE_KEYS.SETTLEMENTS, JSON.stringify(newSettlements));\n    } catch (error) {\n      console.error('Failed to save settlements', error);\n    }\n  };\n\n  const addExpense = (expenseData) => {\n    const newExpense = {\n      id: 'exp-' + Date.now(),\n      date: new Date().toISOString(),\n      ...expenseData,\n    };\n    saveExpenses([newExpense, ...expenses]);\n  };\n\n  const deleteExpense = (id) => {\n    const filtered = expenses.filter(item => item.id !== id);\n    saveExpenses(filtered);\n  };\n\n  const addSettlement = (settlementData) => {\n    const newSettlement = {\n      id: 'set-' + Date.now(),\n      date: new Date().toISOString(),\n      ...settlementData,\n    };\n    saveSettlements([newSettlement, ...settlements]);\n  };\n\n  // Overwrites current state with an imported household payload\n  const importHouseholdState = (newState) => {\n    if (newState.expenses) saveExpenses(newState.expenses);\n    if (newState.roommates) saveRoommates(newState.roommates);\n    if (newState.settlements) saveSettlements(newState.settlements || []);\n  };\n\n  return (\n    <ExpenseContext.Provider \n      value={{\n        expenses,\n        roommates,\n        settlements,\n        isLoading,\n        addExpense,\n        deleteExpense,\n        addSettlement,\n        saveRoommates,\n        importHouseholdState,\n      }}\n    >\n      {children}\n    </ExpenseContext.Provider>\n  );\n};\n",
+    "src/components/ExpenseItem.js": "import React from 'react';\nimport { View, Text, StyleSheet, TouchableOpacity } from 'react-native';\nimport { Ionicons } from '@expo/vector-icons';\nimport { theme } from '../theme';\n\n// Reusable card component for rendering an expense item\nexport default function ExpenseItem({ expense, roommates, onPress }) {\n  // Find name of roommate who paid\n  const payer = roommates.find(r => r.id === expense.paidBy);\n  const payerName = payer ? payer.isUser ? 'You' : payer.name : 'Unknown';\n\n  return (\n    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>\n      <View style={styles.iconContainer}>\n        <Ionicons name=\"receipt-outline\" size={20} color={theme.colors.primary} />\n      </View>\n      <View style={styles.details}>\n        <Text style={styles.title} numberOfLines={1}>{expense.title}</Text>\n        <Text style={styles.meta}>\n          Paid by {payerName} • {new Date(expense.date).toLocaleDateString()}\n        </Text>\n        {expense.receiptUri ? (\n          <View style={styles.receiptTag}>\n            <Ionicons name=\"camera-outline\" size={12} color={theme.colors.primary} />\n            <Text style={styles.receiptText}>Receipt attached</Text>\n          </View>\n        ) : null}\n      </View>\n      <Text style={styles.amount}>${Number(expense.amount).toFixed(2)}</Text>\n    </TouchableOpacity>\n  );\n}\n\nconst styles = StyleSheet.create({\n  card: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    backgroundColor: theme.colors.card,\n    padding: theme.spacing.md,\n    borderRadius: theme.borderRadius.md,\n    marginBottom: theme.spacing.sm,\n    borderWidth: 1,\n    borderColor: theme.colors.border,\n  },\n  iconContainer: {\n    width: 40,\n    height: 40,\n    borderRadius: 20,\n    backgroundColor: '#ECFDF5',\n    justifyContent: 'center',\n    alignItems: 'center',\n    marginRight: theme.spacing.md,\n  },\n  details: {\n    flex: 1,\n    marginRight: theme.spacing.sm,\n  },\n  title: {\n    fontSize: 15,\n    fontWeight: '600',\n    color: theme.colors.text,\n  },\n  meta: {\n    fontSize: 12,\n    color: theme.colors.textMuted,\n    marginTop: 2,\n  },\n  receiptTag: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    marginTop: 4,\n    gap: 4,\n  },\n  receiptText: {\n    fontSize: 11,\n    color: theme.colors.primary,\n    fontWeight: '500',\n  },\n  amount: {\n    fontSize: 16,\n    fontWeight: '600',\n    color: theme.colors.text,\n  },\n});\n",
+    "src/components/EmptyState.js": "import React from 'react';\nimport { View, Text, StyleSheet, TouchableOpacity } from 'react-native';\nimport { Ionicons } from '@expo/vector-icons';\nimport { theme } from '../theme';\n\n// Reusable empty state component to keep screens looking clean and professional\nexport default function EmptyState({ icon, title, description, actionLabel, onAction }) {\n  return (\n    <View style={styles.container}>\n      <View style={styles.iconContainer}>\n        <Ionicons name={icon} size={48} color={theme.colors.textMuted} />\n      </View>\n      <Text style={styles.title}>{title}</Text>\n      <Text style={styles.description}>{description}</Text>\n      \n      {actionLabel && onAction ? (\n        <TouchableOpacity style={styles.button} onPress={onAction}>\n          <Text style={styles.buttonText}>{actionLabel}</Text>\n        </TouchableOpacity>\n      ) : null}\n    </View>\n  );\n}\n\nconst styles = StyleSheet.create({\n  container: {\n    alignItems: 'center',\n    justifyContent: 'center',\n    padding: theme.spacing.xl,\n    backgroundColor: theme.colors.card,\n    borderRadius: theme.borderRadius.lg,\n    borderWidth: 1,\n    borderColor: theme.colors.border,\n    marginVertical: theme.spacing.md,\n  },\n  iconContainer: {\n    width: 80,\n    height: 80,\n    borderRadius: 40,\n    backgroundColor: theme.colors.background,\n    alignItems: 'center',\n    justifyContent: 'center',\n    marginBottom: theme.spacing.md,\n  },\n  title: {\n    fontSize: 16,\n    fontWeight: '600',\n    color: theme.colors.text,\n    marginBottom: theme.spacing.xs,\n    textAlign: 'center',\n  },\n  description: {\n    fontSize: 13,\n    color: theme.colors.textMuted,\n    textAlign: 'center',\n    lineHeight: 18,\n    marginBottom: theme.spacing.md,\n  },\n  button: {\n    backgroundColor: theme.colors.primary,\n    paddingVertical: 10,\n    paddingHorizontal: 16,\n    borderRadius: theme.borderRadius.md,\n  },\n  buttonText: {\n    color: '#FFFFFF',\n    fontWeight: '600',\n    fontSize: 13,\n  },\n});\n",
+    "src/components/DebtCard.js": "import React, { useState } from 'react';\nimport { View, Text, StyleSheet, TouchableOpacity } from 'react-native';\nimport { Ionicons } from '@expo/vector-icons';\nimport { theme } from '../theme';\n\n// Card representing a simplified debt between two roommates with inline confirmation\nexport default function DebtCard({ debt, roommates, onSettle }) {\n  const [isConfirming, setIsConfirming] = useState(false);\n\n  const debtor = roommates.find(r => r.id === debt.fromId);\n  const creditor = roommates.find(r => r.id === debt.toId);\n\n  if (!debtor || !creditor) return null;\n\n  const debtorName = debtor.isUser ? 'You' : debtor.name;\n  const creditorName = creditor.isUser ? 'You' : creditor.name;\n\n  const handleSettlePress = () => {\n    setIsConfirming(true);\n  };\n\n  const handleConfirm = () => {\n    onSettle(debt.fromId, debt.toId, debt.amount);\n    setIsConfirming(false);\n  };\n\n  return (\n    <View style={styles.card}>\n      {!isConfirming ? (\n        <View style={styles.row}>\n          <View style={styles.avatarRow}>\n            <View style={[styles.avatar, debtor.isUser && styles.userAvatar]}>\n              <Text style={styles.avatarText}>{debtor.name[0]}</Text>\n            </View>\n            <Ionicons name=\"arrow-forward\" size={16} color={theme.colors.textMuted} style={styles.arrow} />\n            <View style={[styles.avatar, creditor.isUser && styles.userAvatar]}>\n              <Text style={styles.avatarText}>{creditor.name[0]}</Text>\n            </View>\n          </View>\n\n          <View style={styles.details}>\n            <Text style={styles.debtText}>\n              <Text style={styles.bold}>{debtorName}</Text> owes <Text style={styles.bold}>{creditorName}</Text>\n            </Text>\n            <Text style={styles.amount}>${debt.amount.toFixed(2)}</Text>\n          </View>\n\n          <TouchableOpacity style={styles.settleButton} onPress={handleSettlePress}>\n            <Text style={styles.settleButtonText}>Settle</Text>\n          </TouchableOpacity>\n        </View>\n      ) : (\n        <View style={styles.confirmContainer}>\n          <Text style={styles.confirmTitle}>Confirm Cash Settlement?</Text>\n          <Text style={styles.confirmSub}>\n            Did {debtorName} pay {creditorName} ${debt.amount.toFixed(2)}?\n          </Text>\n          <View style={styles.confirmActions}>\n            <TouchableOpacity \n              style={[styles.actionButton, styles.cancelButton]} \n              onPress={() => setIsConfirming(false)}\n            >\n              <Text style={styles.cancelButtonText}>Cancel</Text>\n            </TouchableOpacity>\n            <TouchableOpacity \n              style={[styles.actionButton, styles.confirmButton]} \n              onPress={handleConfirm}\n            >\n              <Text style={styles.confirmButtonText}>Yes, Settled</Text>\n            </TouchableOpacity>\n          </View>\n        </View>\n      )}\n    </View>\n  );\n}\n\nconst styles = StyleSheet.create({\n  card: {\n    backgroundColor: theme.colors.card,\n    borderRadius: theme.borderRadius.md,\n    padding: theme.spacing.md,\n    marginBottom: theme.spacing.sm,\n    borderWidth: 1,\n    borderColor: theme.colors.border,\n  },\n  row: {\n    flexDirection: 'row',\n    alignItems: 'center',\n  },\n  avatarRow: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    marginRight: theme.spacing.md,\n  },\n  avatar: {\n    width: 32,\n    height: 32,\n    borderRadius: 16,\n    backgroundColor: '#E5E7EB',\n    alignItems: 'center',\n    justifyContent: 'center',\n  },\n  userAvatar: {\n    backgroundColor: '#D1FAE5',\n  },\n  avatarText: {\n    fontSize: 12,\n    fontWeight: 'bold',\n    color: theme.colors.text,\n  },\n  arrow: {\n    marginHorizontal: 4,\n  },\n  details: {\n    flex: 1,\n  },\n  debtText: {\n    fontSize: 13,\n    color: theme.colors.text,\n  },\n  bold: {\n    fontWeight: '600',\n  },\n  amount: {\n    fontSize: 18,\n    fontWeight: 'bold',\n    color: theme.colors.danger,\n    marginTop: 2,\n  },\n  settleButton: {\n    backgroundColor: '#ECFDF5',\n    borderWidth: 1,\n    borderColor: '#A7F3D0',\n    paddingVertical: 6,\n    paddingHorizontal: 12,\n    borderRadius: theme.borderRadius.sm,\n  },\n  settleButtonText: {\n    color: theme.colors.primary,\n    fontWeight: '600',\n    fontSize: 12,\n  },\n  confirmContainer: {\n    alignItems: 'center',\n    paddingVertical: theme.spacing.xs,\n  },\n  confirmTitle: {\n    fontSize: 14,\n    fontWeight: 'bold',\n    color: theme.colors.text,\n  },\n  confirmSub: {\n    fontSize: 12,\n    color: theme.colors.textMuted,\n    marginTop: 2,\n    marginBottom: theme.spacing.md,\n    textAlign: 'center',\n  },\n  confirmActions: {\n    flexDirection: 'row',\n    gap: theme.spacing.sm,\n  },\n  actionButton: {\n    flex: 1,\n    paddingVertical: 8,\n    borderRadius: theme.borderRadius.sm,\n    alignItems: 'center',\n  },\n  cancelButton: {\n    backgroundColor: theme.colors.background,\n    borderWidth: 1,\n    borderColor: theme.colors.border,\n  },\n  cancelButtonText: {\n    color: theme.colors.textMuted,\n    fontWeight: '600',\n    fontSize: 12,\n  },\n  confirmButton: {\n    backgroundColor: theme.colors.primary,\n  },\n  confirmButtonText: {\n    color: '#FFFFFF',\n    fontWeight: '600',\n    fontSize: 12,\n  },\n});\n"
+  },
+  "builtMilestones": [
+    "m1",
+    "m2",
+    "m3"
+  ],
+  "buildLog": [
+    {
+      "id": "milestone-0",
+      "kind": "milestone",
+      "title": "Milestone 1: App Shell and Navigation",
+      "notes": "- Set up the robust navigation skeleton with React Navigation (Native Stack + Bottom Tabs) inside a single Expo Snack compatible app.\n- Created central design tokens in `src/theme.js` to enforce consistent 8px grid spacing, high-contrast dark/light accents, and typography.\n- Seeded realistic roommate and expense data in `src/data/seedData.js` so placeholder screens immediately show life on first launch.\n**Try it:** Launch the app and tap through the bottom tabs (Home, Expenses, Balances, Household) to inspect the shell navigation.",
+      "changedFiles": [
+        "src/theme.js",
+        "src/data/seedData.js",
+        "src/screens/HomeScreen.js",
+        "src/screens/ExpensesScreen.js",
+        "src/screens/AddExpenseScreen.js",
+        "src/screens/BalancesScreen.js",
+        "src/screens/SettingsScreen.js",
+        "src/screens/ReceiptDetailScreen.js",
+        "App.js"
+      ],
+      "at": 1791214157702
+    },
+    {
+      "id": "milestone-1",
+      "kind": "milestone",
+      "title": "Milestone 2: Expense Logging & AsyncStorage",
+      "notes": "- Created `ExpenseContext.js` to manage AsyncStorage persistence for roommates, expenses, and manual settlements.\n- Built `ExpenseItem.js` as a reusable component for clean list rendering across screens.\n- Updated `AddExpenseScreen.js` with functional form inputs, payer selection, split toggles, and photo URL attachments.\n- Upgraded `ExpensesScreen.js` and `ReceiptDetailScreen.js` to consume context and display dynamic expenses and receipts.\n**Try it:** Tap \"Add Expense\" on the overview tab, log a new shared item, and watch it save locally and update balances instantly!",
+      "changedFiles": [
+        "src/context/ExpenseContext.js",
+        "src/components/ExpenseItem.js",
+        "src/screens/AddExpenseScreen.js",
+        "src/screens/ExpensesScreen.js",
+        "src/screens/ReceiptDetailScreen.js",
+        "App.js"
+      ],
+      "at": 1791214255719
+    },
+    {
+      "id": "milestone-2",
+      "kind": "milestone",
+      "title": "Milestone 3: Balance Calculation, Settlements & Invite Link",
+      "notes": "- **Offline Debt Simplification**: Built a robust, local-first debt simplification algorithm that matches debtors and creditors to minimize the total number of transactions.\n- **Manual Settlements**: Enabled marking active debts as settled, which appends a settlement record to the local state and recalculates balances instantly.\n- **Household Invite Payload**: Created a Base64-encoded state sharing system. Roommates can export their entire household state (roommates, expenses, settlements) into a text payload, share it via any chat app, and import it on another device to sync offline.\n- **Polished Empty States & Inline Confirmations**: Added a reusable `EmptyState` component and built inline confirmation flows for settlements to avoid using native-only alert dialogs.\n\n**Try it:** Go to the **Balances** tab to view calculated debts and tap **Settle Up** to record a payment. Then go to the **Household** tab to add a roommate or copy the Base64 invite payload!",
+      "changedFiles": [
+        "src/components/EmptyState.js",
+        "src/components/DebtCard.js",
+        "src/screens/BalancesScreen.js",
+        "src/screens/SettingsScreen.js",
+        "src/screens/HomeScreen.js",
+        "src/context/ExpenseContext.js"
+      ],
+      "at": 1791214483486
+    }
+  ],
+  "explanations": {
+    "beginner:src/screens/HomeScreen.js": {
+      "level": "beginner",
+      "hash": "sowtoh",
+      "data": {
+        "summary": "This file implements the primary dashboard screen where users can view their household financial totals, personal debt balances, and a preview of recent expenses.",
+        "role": "It serves as the main landing screen of the app, connecting global data stores to navigation routes and user interface components.",
+        "sections": [
+          {
+            "title": "Imports and Data Hookup",
+            "startLine": 1,
+            "endLine": 10,
+            "explanation": "We pull in core React Native UI components, icons, theme configurations, and our central data store. Think of useContext like grabbing the master household key ring so we can access shared expenses and roommate records from anywhere in the house.",
+            "concept": "useContext"
+          },
+          {
+            "title": "Computing Dashboard Metrics",
+            "startLine": 11,
+            "endLine": 22,
+            "explanation": "This block calculates live totals, maps out the current user's personal financial balance, and slices the expense list down to the three most recent items. It transforms raw data into bite-sized stats ready for display.",
+            "concept": "Data Transformation"
+          },
+          {
+            "title": "Household Summary and Action Buttons",
+            "startLine": 23,
+            "endLine": 67,
+            "explanation": "We render a primary card showing total household spending and your individual balance status, complete with action buttons. Pressing these buttons tells the navigation prop to push a new screen onto your phone's display stack.",
+            "concept": "Conditional UI Rendering"
+          },
+          {
+            "title": "Recent Expenses List Preview",
+            "startLine": 68,
+            "endLine": 110,
+            "explanation": "This section checks if any expenses exist, displaying a friendly empty state if the list is blank. Otherwise, it loops through the recent items to build clickable rows that lead straight to receipt details.",
+            "concept": "Array Mapping"
+          },
+          {
+            "title": "Styles and Layout Rules",
+            "startLine": 112,
+            "endLine": 252,
+            "explanation": "We define visual styling using StyleSheet, managing layout properties like flexbox alignment, card borders, and spacing. This acts as the interior designer blueprint, making sure padding and colors look clean across different phone sizes.",
+            "concept": "StyleSheet"
+          }
+        ],
+        "gotchas": [
+          "Forgetting that JavaScript array slice does not mutate the original array, which is actually helpful here but trips up beginners trying to sort or filter.",
+          "Attempting to read properties from roommates or expenses before the context has loaded its initial data, causing undefined errors.",
+          "Not providing a unique key prop when mapping over the recent expenses array, which confuses React's virtual DOM reconciliation."
+        ]
+      }
+    },
+    "beginner:src/screens/ExpensesScreen.js": {
+      "level": "beginner",
+      "hash": "1i0xckm",
+      "data": {
+        "summary": "This file renders the main expenses screen where users can search through a list of household expenses and tap them for details.",
+        "role": "It sits in the screens directory and serves as a primary view for users interacting with expense data.",
+        "sections": [
+          {
+            "title": "Imports and Component Setup",
+            "startLine": 1,
+            "endLine": 10,
+            "explanation": "We pull in core React tools, UI components, icons, and our shared data context. Think of Context like a shared bulletin board in the kitchen where everyone can read household notes without asking directly. We also initialize local state to track what the user is typing into the search bar.",
+            "concept": "useContext and useState"
+          },
+          {
+            "title": "Filtering Expenses",
+            "startLine": 11,
+            "endLine": 16,
+            "explanation": "This logic takes our full list of expenses and narrows it down based on the search text. By converting both strings to lowercase, we make sure the search is not case-sensitive. It runs on every keystroke to instantly update what the user sees.",
+            "concept": "Array filter"
+          },
+          {
+            "title": "Search Bar and List Rendering",
+            "startLine": 17,
+            "endLine": 44,
+            "explanation": "Here we return the visual layout, combining a text input for searching and a performance-optimized list component. Think of FlatList as a smart filing cabinet that only draws the folders currently visible on your desk, rather than printing every single folder at once. Each item in the list can also be tapped to navigate to a detailed view.",
+            "concept": "FlatList"
+          },
+          {
+            "title": "Style Definitions",
+            "startLine": 45,
+            "endLine": 75,
+            "explanation": "We use React Native's StyleSheet to keep our layout rules organized and separate from the markup. Reusing values from our theme file helps maintain a consistent look and feel across the entire app.",
+            "concept": "StyleSheet"
+          }
+        ],
+        "gotchas": [
+          "Forgetting to supply a keyExtractor to a FlatList, which forces React to guess item identities and can cause severe rendering bugs.",
+          "Performing heavy calculations or network requests directly inside the render loop instead of wrapping them in hooks."
+        ]
+      }
+    },
+    "beginner:src/screens/AddExpenseScreen.js": {
+      "level": "beginner",
+      "hash": "szz85c",
+      "data": {
+        "summary": "This screen provides a form to create a new shared expense, allowing users to enter a description, amount, select who paid, and choose who to split it with.",
+        "role": "It is a form screen navigated to from the main dashboard when a user wants to record a new bill.",
+        "sections": [
+          {
+            "title": "Imports and State Setup",
+            "startLine": 1,
+            "endLine": 16,
+            "explanation": "We pull in core React hooks and context tools, then set up local variables to hold the form data like title and amount. Think of this like setting up the blank fields on a paper ledger before you start writing.",
+            "concept": "useState and useContext"
+          },
+          {
+            "title": "Validation and Submission",
+            "startLine": 27,
+            "endLine": 48,
+            "explanation": "Before saving, we verify that the user typed a description and a valid number for the amount. If everything checks out, we send the data up to our shared app context and pop back to the previous screen.",
+            "concept": "Form Validation"
+          },
+          {
+            "title": "Inputs and Dynamic Roommate Pills",
+            "startLine": 49,
+            "endLine": 104,
+            "explanation": "This block renders scrollable form fields and maps over the roommates list to create interactive selection buttons. It is like generating a custom checklist of people dynamically depending on how many roommates live in the house.",
+            "concept": "Array.prototype.map for UI Rendering"
+          },
+          {
+            "title": "Receipt Preview and Styles",
+            "startLine": 105,
+            "endLine": 209,
+            "explanation": "If a receipt image link is provided, an image component renders a preview directly below the input field. The StyleSheet at the bottom organizes colors, padding, and layout rules using our design theme.",
+            "concept": "Conditional Rendering and StyleSheet"
+          }
+        ],
+        "gotchas": [
+          "Forgetting that TextInput values are always strings, meaning you must parse them into numbers before performing math or saving financial records.",
+          "Mutating state arrays directly instead of using spread syntax or filter, which breaks React's ability to detect changes and re-render the screen."
+        ]
+      }
+    },
+    "beginner:src/screens/BalancesScreen.js": {
+      "level": "beginner",
+      "hash": "1hyc45n",
+      "data": {
+        "summary": "This file calculates roommate financial balances, simplifies who owes what, and renders the user interface for tracking shared expenses.",
+        "role": "Screen component that acts as the financial dashboard for the app.",
+        "sections": [
+          {
+            "title": "Debt Calculation Engine",
+            "startLine": 10,
+            "endLine": 97,
+            "explanation": "This pure JavaScript function processes all expenses and manual payouts to figure out who owes money and who should receive it. Think of it like balancing a group ledger at the end of a vacation to find the fewest transactions needed to settle up.",
+            "concept": "Algorithm logic in React Native"
+          },
+          {
+            "title": "Component Setup and State Access",
+            "startLine": 99,
+            "endLine": 111,
+            "explanation": "The screen component grabs global data like roommates and expenses using React context, then runs the calculation function to get active balances. It also provides a handler function to record new settlements when a payment is made.",
+            "concept": "useContext hook"
+          },
+          {
+            "title": "Balances and Debts Rendering",
+            "startLine": 112,
+            "endLine": 161,
+            "explanation": "This block loops through the roommates and active debts to display each person's financial standing on the screen. If no one owes anything, it renders an encouraging empty state component instead.",
+            "concept": "Array mapping and conditional rendering"
+          },
+          {
+            "title": "Settlement History and Styling",
+            "startLine": 163,
+            "endLine": 278,
+            "explanation": "It renders a chronological log of past payments made between roommates at the bottom of the screen. The StyleSheet object below defines all visual properties like padding, colors, and layout rules.",
+            "concept": "StyleSheet create"
+          }
+        ],
+        "gotchas": [
+          "Modifying global context values directly instead of using the provided handler functions like addSettlement.",
+          "Forgetting that JavaScript floating-point math can lead to tiny decimal inaccuracies, which is why the code uses 0.01 tolerance checks.",
+          "Not wrapping lists in a ScrollView or FlatList when content exceeds screen height, causing items to clip off-screen."
+        ]
+      }
+    },
+    "beginner:src/screens/SettingsScreen.js": {
+      "level": "beginner",
+      "hash": "175nwlg",
+      "data": {
+        "summary": "The SettingsScreen manages household roommates and handles offline data synchronization via Base64 encoded state strings.",
+        "role": "It serves as the configuration hub of the app, allowing users to update household members and share state without a backend server.",
+        "sections": [
+          {
+            "title": "Imports and Context Hook",
+            "startLine": 1,
+            "endLine": 13,
+            "explanation": "This block imports core React Native building blocks and hooks into our global state using useContext. Think of useContext like grabbing the master TV remote from the coffee table instead of walking over to the television for every button press. Local state variables are also set up here for handling text inputs and status feedback banners.",
+            "concept": "useContext and Local State"
+          },
+          {
+            "title": "Roommate Management Logic",
+            "startLine": 14,
+            "endLine": 32,
+            "explanation": "Here we define the function to add new roommates to our household array. It validates that the input isn't empty, creates a unique ID using a timestamp, and calls our global save function. A temporary banner helper is also provided to flash success or error messages.",
+            "concept": "Array Immutability"
+          },
+          {
+            "title": "State Serialization and Sharing",
+            "startLine": 33,
+            "endLine": 60,
+            "explanation": "This section serializes the entire household state into a JSON string and encodes it into Base64 format so it can be safely sent as text. The native Share API then opens your operating system's share sheet. It is like packing an entire room into a cardboard box of text so you can mail it to a friend.",
+            "concept": "Native Share API"
+          },
+          {
+            "title": "State Import and Deserialization",
+            "startLine": 61,
+            "endLine": 83,
+            "explanation": "This code takes a pasted Base64 string from your clipboard, decodes it back into text, and parses it into JavaScript objects. If the format checks out, it overwrites the current household state through the global context. Always validate imported data structures carefully before accepting them to prevent app crashes.",
+            "concept": "JSON Parsing and Validation"
+          },
+          {
+            "title": "Settings UI Layout",
+            "startLine": 84,
+            "endLine": 167,
+            "explanation": "The render method builds a scrollable view containing status alerts, input forms for roommates, and action buttons for syncing. We map over the roommates array to display each user dynamically with custom avatars and tags. This forms the visual interface the user interacts with directly.",
+            "concept": "Conditional Rendering and Lists"
+          }
+        ],
+        "gotchas": [
+          "Forgetting to handle UTF-8 characters properly when using btoa and atob, which can corrupt names containing emojis or special accents.",
+          "Not validating the structure of imported JSON data, leading to app crashes if a user pastes malformed text.",
+          "Mutating the roommates array directly using push() instead of passing a brand new array reference into saveRoommates."
+        ]
+      }
+    },
+    "beginner:src/screens/ReceiptDetailScreen.js": {
+      "level": "beginner",
+      "hash": "1nw3ha",
+      "data": {
+        "summary": "This file displays the detailed view of a selected expense, including who paid, metadata, an attached receipt image, and an option to delete it.",
+        "role": "It sits in the screens layer, acting as a detail view pushed onto the navigation stack when a user taps an expense item.",
+        "sections": [
+          {
+            "title": "Imports and Component Setup",
+            "startLine": 1,
+            "endLine": 16,
+            "explanation": "We pull in core React Native UI components alongside navigation props and global context data. Think of route.params like opening a specific file handed to you in a folder, containing the details of the exact expense you tapped.",
+            "concept": "Route Params and Context"
+          },
+          {
+            "title": "Render UI and Conditional Receipt",
+            "startLine": 17,
+            "endLine": 43,
+            "explanation": "This block structures the layout, showing text details at the top and conditionally rendering either the receipt image or a fallback placeholder if none exists. Using logical operators like the question mark prevents crashes if data hasn't loaded yet.",
+            "concept": "Conditional Rendering"
+          },
+          {
+            "title": "Style Sheet Definitions",
+            "startLine": 45,
+            "endLine": 114,
+            "explanation": "We use StyleSheet.create to organize all our visual rules in one place, keeping components clean and optimized. It behaves much like CSS, but tailored specifically for mobile layouts.",
+            "concept": "React Native Stylesheet"
+          }
+        ],
+        "gotchas": [
+          "Forgetting to check if route.params exists can cause the app to crash if the screen is somehow accessed without an expense object.",
+          "Not providing width and height dimensions to the Image component will cause remote or local URI images to fail to render.",
+          "Typos in style property names like alignItem instead of alignItems fail silently without throwing a standard JS error."
+        ]
+      }
+    },
+    "beginner:App.js": {
+      "level": "beginner",
+      "hash": "5akxg",
+      "data": {
+        "summary": "App.js is the root entry point of SplitFlat, setting up global navigation, visual styling, and data context for the entire application.",
+        "role": "Application entry point and routing coordinator. Think of this file as the main floor manager of a building, directing users to the right rooms (screens) and supplying everyone with the tools they need (state and theme).",
+        "sections": [
+          {
+            "title": "Imports and Setup",
+            "startLine": 1,
+            "endLine": 20,
+            "explanation": "We bring in React Native packages, icons, screen components, and navigation tools. We also instantiate our navigator objects which will handle moving between screens.",
+            "concept": "ES6 Imports and Navigator Initialization"
+          },
+          {
+            "title": "Tab Navigator",
+            "startLine": 21,
+            "endLine": 54,
+            "explanation": "This function defines the bottom navigation bar you see at the bottom of the app. It dynamically assigns icons based on whether a tab is currently focused by the user.",
+            "concept": "Bottom Tab Navigation"
+          },
+          {
+            "title": "Root Component",
+            "startLine": 55,
+            "endLine": 81,
+            "explanation": "This component wraps our entire app in wrappers like SafeAreaProvider to prevent content from hiding under phone notches, and ExpenseProvider so every screen can read and write expense data.",
+            "concept": "Context Providers and Stack Navigator"
+          }
+        ],
+        "gotchas": [
+          "Placing hooks or data-fetching logic directly inside App.js instead of delegating them to screens or context providers.",
+          "Forgetting to wrap the app in NavigationContainer, which causes React Navigation to throw a runtime error.",
+          "Mixing up stack navigation and tab navigation hierarchies."
+        ]
+      }
+    },
+    "beginner:src/context/ExpenseContext.js": {
+      "level": "beginner",
+      "hash": "119088f",
+      "data": {
+        "summary": "This file creates a global data store for expenses, roommates, and settlements, handling both local React state and permanent offline storage.",
+        "role": "It sits at the core of the data layer, allowing any screen in the app to read or update app data without passing props manually.",
+        "sections": [
+          {
+            "title": "Context Creation and Storage Keys",
+            "startLine": 1,
+            "endLine": 12,
+            "explanation": "We create a React Context which acts like a magical broadcast channel for our app data. Think of it like a community bulletin board where any component can read or post updates. We also define distinct string keys to keep our local storage organized.",
+            "concept": "createContext"
+          },
+          {
+            "title": "Provider State and Initial Load",
+            "startLine": 13,
+            "endLine": 39,
+            "explanation": "The provider component holds our app's core state and loads saved data from the device storage when the app first opens. AsyncStorage acts like a mini hard drive for your phone, storing text data even when the app is closed.",
+            "concept": "useEffect and AsyncStorage"
+          },
+          {
+            "title": "Persistence Helper Functions",
+            "startLine": 40,
+            "endLine": 68,
+            "explanation": "These helper functions update the React state and immediately save the new data into device storage. Because storage only accepts text strings, we convert our JavaScript objects into text using JSON.stringify.",
+            "concept": "AsyncStorage Write Operations"
+          },
+          {
+            "title": "Data Mutation Actions",
+            "startLine": 69,
+            "endLine": 98,
+            "explanation": "These functions handle adding new expenses, deleting items, and importing household states. They keep our data predictable by ensuring every new entry gets a unique ID and a timestamp before saving.",
+            "concept": "State Updaters"
+          },
+          {
+            "title": "Providing the Context Value",
+            "startLine": 99,
+            "endLine": 118,
+            "explanation": "We wrap our child components in the Context Provider and pass down all our state variables and functions. Any screen nested inside this provider can now access this data instantly.",
+            "concept": "Context Provider"
+          }
+        ],
+        "gotchas": [
+          "Forgetting that AsyncStorage operations are asynchronous and failing to await them, leading to race conditions where UI updates before the data is saved.",
+          "Trying to store raw JavaScript arrays or objects directly into AsyncStorage instead of converting them to strings using JSON.stringify first."
+        ]
+      }
+    }
+  },
+  "progress": {
+    "xp": 0,
+    "lessonsRead": [],
+    "quizCorrect": [],
+    "quizAttempted": [],
+    "challengesPassed": []
+  },
+  "understanding": {
+    "summary": "Your idea is a shared expense tracking app designed specifically for roommates. It needs to log collective bills, calculate individual balances, and simplify debt settlements so everyone knows who to pay and how much.",
+    "appType": "Finance",
+    "complexity": "starter",
+    "similarApps": [
+      "Splitwise",
+      "Tricount",
+      "Venmo"
+    ],
+    "questions": [
+      {
+        "id": "offline_needs",
+        "question": "Does the app need to work when a roommate has no internet connection?",
+        "why": "Building local data storage requires different code architecture than relying on a live cloud database.",
+        "options": [
+          "Yes, full offline support is needed",
+          "No, internet is always required",
+          "Only cache the last viewed screen"
+        ],
+        "multiSelect": false
+      },
+      {
+        "id": "core_loop",
+        "question": "How do roommates settle up their debts inside the app?",
+        "why": "Tracking external payments changes whether you need payment gateway integrations or just manual status buttons.",
+        "options": [
+          "Mark debts as paid manually",
+          "Integrate with external payment apps like Venmo",
+          "In-app peer-to-peer wallet transfers"
+        ],
+        "multiSelect": false
+      },
+      {
+        "id": "sharing_mechanism",
+        "question": "How do roommates join a shared household in the app?",
+        "why": "Deciding between direct invites or public links affects how user accounts and group permissions are structured.",
+        "options": [
+          "Unique invite link sent via text or chat",
+          "Nearby device discovery using Bluetooth",
+          "Manual creation by one house admin"
+        ],
+        "multiSelect": false
+      }
+    ]
+  },
+  "brief": {
+    "name": "SplitFlat",
+    "tagline": "Simple, offline-first expense tracking for roommates",
+    "problem": "Roommates struggle to keep track of shared household expenses fairly, leading to friction and delayed settlements, often compounded by poor connectivity or overly complex backend apps.",
+    "personas": [
+      {
+        "name": "Busy Student",
+        "description": "A college student sharing an off-campus apartment with three peers, needing quick entry of shared grocery and utility costs.",
+        "needs": [
+          "Fast expense entry on the go",
+          "Clear view of current balances",
+          "Offline functionality when campus Wi-Fi drops"
+        ]
+      }
+    ],
+    "features": [
+      {
+        "id": "local-expense-logging",
+        "name": "Local Expense Logging",
+        "description": "Record shared expenses with amounts, paid-by details, and split rules stored entirely on-device.",
+        "priority": "must",
+        "userStory": "As a roommate, I want to log a shared bill locally so that I can track our household expenses without needing an active internet connection."
+      },
+      {
+        "id": "offline-balance-calculation",
+        "name": "Offline Balance Calculation",
+        "description": "Automatically compute net balances and simplified debts between roommates using local SQLite storage.",
+        "priority": "must",
+        "userStory": "As a roommate, I want the app to calculate who owes whom automatically so that there is no confusion during settlement."
+      },
+      {
+        "id": "manual-debt-settlement",
+        "name": "Manual Debt Settlement",
+        "description": "Mark calculated debts as settled manually when cash or external transfers are completed.",
+        "priority": "must",
+        "userStory": "As a roommate, I want to mark a debt as paid manually so that our balance sheet updates correctly after settling up outside the app."
+      },
+      {
+        "id": "household-invite-link",
+        "name": "Household Invite Link",
+        "description": "Generate a unique deep-link payload to share household state via text or chat apps.",
+        "priority": "must",
+        "userStory": "As a roommate, I want to share a unique invite link via text so that my peers can join the household context."
+      },
+      {
+        "id": "expense-receipt-attachments",
+        "name": "Receipt Photo Attachments",
+        "description": "Attach a locally snapped photo of the receipt to an expense item.",
+        "priority": "should",
+        "userStory": "As a roommate, I want to attach a photo of the receipt to an expense so that others can verify the cost."
+      }
+    ],
+    "outOfScope": [
+      "Cloud server synchronization and user accounts",
+      "In-app peer-to-peer payments and banking integrations",
+      "Real-time multi-device sync via WebSockets"
+    ],
+    "assumptions": [
+      "Users are willing to manually coordinate actual payments outside the app.",
+      "Household joining via invite link can be handled via local state import/export or peer-to-peer data passing without a central database."
+    ]
+  },
+  "plan": {
+    "stack": {
+      "choice": "React Native with Expo",
+      "reason": "React Native with Expo allows us to build a cross-platform mobile app from a single JavaScript codebase with rich built-in native module support like image picking, making it ideal for rapid feature delivery and offline-first mobile usage.",
+      "alternatives": [
+        {
+          "name": "Flutter",
+          "whyNot": "Uses Dart instead of JavaScript, which adds friction for web-trained developers learning mobile engineering in this mentoring track."
+        },
+        {
+          "name": "Native Swift / Kotlin",
+          "whyNot": "Requires maintaining two separate codebases, slowing down solo iteration speed when validating core household expense logic."
+        },
+        {
+          "name": "Progressive Web App (PWA)",
+          "whyNot": "Lacks reliable deep integration for local device camera access and deep-linking share sheets across both iOS and Android platforms."
+        }
+      ]
+    },
+    "navigation": {
+      "pattern": "tabs+stack",
+      "reason": "A bottom tab navigator separates core daily views (Expenses, Balances, Settings), while stack navigation handles drill-down flows like adding a new expense or viewing receipt details."
+    },
+    "storage": {
+      "choice": "AsyncStorage for local persistence",
+      "reason": "Provides a simple, asynchronous key-value key store that fits offline-first local data requirements for roommates without needing a complex SQLite setup in early iterations.",
+      "productionUpgrade": "Migrate to local WatermelonDB or SQLite for complex relational queries and transactional safety as household history grows."
+    },
+    "screens": [
+      {
+        "id": "HomeScreen",
+        "name": "Dashboard",
+        "purpose": "Overview of household balance summary and recent expenses.",
+        "components": [
+          "ScrollView",
+          "SummaryCard",
+          "FlatList",
+          "ExpenseItem"
+        ],
+        "navigatesTo": [
+          "AddExpenseScreen",
+          "BalancesScreen"
+        ]
+      },
+      {
+        "id": "ExpensesScreen",
+        "name": "Expenses",
+        "purpose": "List all recorded household expenses with search and filter options.",
+        "components": [
+          "FlatList",
+          "ExpenseCard",
+          "SearchBar",
+          "Button"
+        ],
+        "navigatesTo": [
+          "AddExpenseScreen",
+          "ReceiptDetailScreen"
+        ]
+      },
+      {
+        "id": "AddExpenseScreen",
+        "name": "Add Expense",
+        "purpose": "Form to log a new shared expense, split details, and attach receipts.",
+        "components": [
+          "TextInput",
+          "Picker",
+          "Button",
+          "ImagePicker",
+          "ScrollView"
+        ],
+        "navigatesTo": [
+          "HomeScreen",
+          "ExpensesScreen"
+        ]
+      },
+      {
+        "id": "BalancesScreen",
+        "name": "Balances",
+        "purpose": "Compute net debts and allow roommates to mark debts as settled.",
+        "components": [
+          "FlatList",
+          "DebtCard",
+          "Button",
+          "Modal"
+        ],
+        "navigatesTo": [
+          "HomeScreen"
+        ]
+      },
+      {
+        "id": "SettingsScreen",
+        "name": "Household",
+        "purpose": "Manage roommate members and generate household invite payload.",
+        "components": [
+          "FlatList",
+          "Button",
+          "TextInput",
+          "ShareSheetCard"
+        ],
+        "navigatesTo": []
+      },
+      {
+        "id": "ReceiptDetailScreen",
+        "name": "Receipt Details",
+        "purpose": "View full-size photo attachments of expense receipts.",
+        "components": [
+          "Image",
+          "ScrollView",
+          "Button"
+        ],
+        "navigatesTo": [
+          "ExpensesScreen"
+        ]
+      }
+    ],
+    "dataModel": [
+      {
+        "name": "Expense",
+        "description": "Represents a shared household purchase.",
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "note": "Unique UUID"
+          },
+          {
+            "name": "title",
+            "type": "string",
+            "note": "Description of purchase"
+          },
+          {
+            "name": "amount",
+            "type": "number",
+            "note": "Total cost"
+          },
+          {
+            "name": "paidBy",
+            "type": "string",
+            "note": "Roommate ID who paid"
+          },
+          {
+            "name": "splitBetween",
+            "type": "array",
+            "note": "List of roommate IDs sharing cost"
+          },
+          {
+            "name": "receiptUri",
+            "type": "string",
+            "note": "Local image file path"
+          },
+          {
+            "name": "date",
+            "type": "string",
+            "note": "ISO timestamp"
+          }
+        ]
+      },
+      {
+        "name": "Roommate",
+        "description": "A member of the household sharing expenses.",
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "note": "Unique ID"
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "note": "Display name"
+          },
+          {
+            "name": "isUser",
+            "type": "boolean",
+            "note": "Indicates primary device user"
+          }
+        ]
+      },
+      {
+        "name": "Settlement",
+        "description": "Tracks manual debt settlements between roommates.",
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "note": "Unique ID"
+          },
+          {
+            "name": "fromId",
+            "type": "string",
+            "note": "Debtor roommate ID"
+          },
+          {
+            "name": "toId",
+            "type": "string",
+            "note": "Creditor roommate ID"
+          },
+          {
+            "name": "amount",
+            "type": "number",
+            "note": "Settled amount"
+          },
+          {
+            "name": "date",
+            "type": "string",
+            "note": "ISO timestamp"
+          }
+        ]
+      }
+    ],
+    "milestones": [
+      {
+        "id": "m1",
+        "title": "App Shell and Navigation",
+        "goal": "Set up theme, bottom tabs, stack navigation, seed data, and placeholder screens.",
+        "files": [
+          "App.js",
+          "src/theme.js",
+          "src/data/seedData.js",
+          "src/screens/HomeScreen.js",
+          "src/screens/ExpensesScreen.js",
+          "src/screens/AddExpenseScreen.js",
+          "src/screens/BalancesScreen.js",
+          "src/screens/SettingsScreen.js",
+          "src/screens/ReceiptDetailScreen.js"
+        ],
+        "concepts": [
+          "React Navigation Bottom Tabs",
+          "React Navigation Native Stack",
+          "React Context for Theme and State",
+          "React Native StyleSheet"
+        ]
+      },
+      {
+        "id": "m2",
+        "title": "Expense Logging & AsyncStorage",
+        "goal": "Persist local expenses, roommate lists, and enable adding new expenses with local image attachments.",
+        "files": [
+          "src/context/ExpenseContext.js",
+          "src/screens/AddExpenseScreen.js",
+          "src/screens/ExpensesScreen.js",
+          "src/screens/ReceiptDetailScreen.js",
+          "src/components/ExpenseItem.js"
+        ],
+        "concepts": [
+          "AsyncStorage persistence",
+          "FlatList rendering",
+          "Expo ImagePicker",
+          "Form input state management"
+        ]
+      },
+      {
+        "id": "m3",
+        "title": "Balance Calculation, Settlements & Invite Link",
+        "goal": "Compute net debts, provide manual debt settlement actions, generate shareable invite payload, and polish empty states.",
+        "files": [
+          "src/screens/BalancesScreen.js",
+          "src/screens/SettingsScreen.js",
+          "src/screens/HomeScreen.js",
+          "src/components/DebtCard.js",
+          "src/components/EmptyState.js"
+        ],
+        "concepts": [
+          "Debt simplification algorithms",
+          "Clipboard API / Share API",
+          "Modal dialogs",
+          "Conditional empty state rendering"
+        ]
+      }
+    ],
+    "risks": [
+      "Complex debt simplification algorithms can produce edge cases with multiple roommates and uneven splits.",
+      "Local image URIs from Expo ImagePicker may break if cache directories are cleaned up by the OS.",
+      "AsyncStorage serialization issues when storing nested date objects and image URIs."
+    ]
+  },
+  "snack": {
+    "id": "S9AvUxYUar0ERg-J46Rb0",
+    "expoUrl": "exp://u.expo.dev/933fd9c0-1666-11e7-afca-d980795c5824?runtime-version=exposdk%3A54.0.0&channel-name=production&snack=S9AvUxYUar0ERg-J46Rb0",
+    "embedUrl": "https://snack.expo.dev/embedded/S9AvUxYUar0ERg-J46Rb0?preview=true&platform=web&theme=light&supportedPlatforms=web",
+    "webUrl": "https://snack.expo.dev/S9AvUxYUar0ERg-J46Rb0"
+  },
+  "snackHash": "djjc34",
+  "learning": {
+    "overview": "Welcome to your personalized learning path for SplitFlat! Based on the code in your repository, we have curated 4 key concepts spanning from foundational component styling and navigation to global state management and persistent offline storage. Each lesson includes code references from your project, a micro-lesson, interactive quiz questions, and a targeted coding challenge.",
+    "lessons": [
+      {
+        "id": "react-native-stylesheet",
+        "concept": "React Native StyleSheet",
+        "roadmapLevel": 4,
+        "difficulty": "beginner",
+        "whyInYourApp": "SplitFlat relies on StyleSheet for clean, scalable visual styling across all screens and reusable UI components, ensuring consistent spacing, border radii, and color tokens from your theme.",
+        "fileRef": {
+          "path": "src/theme.js",
+          "line": 1
+        },
+        "lesson": "In React Native, layout and styling are handled through JavaScript objects passed to `StyleSheet.create()`. Unlike the web, React Native uses a subset of CSS where properties are camelCased (e.g., `backgroundColor` instead of `background-color`) and flexbox is enabled by default with `flexDirection: 'column'` as the default orientation.\n\nTo build maintainable mobile apps, it is a best practice to centralize design tokens—such as color palettes, spacing metrics, and typography sizes—into a dedicated theme file. Components can then reference these tokens dynamically. For example, creating a card container involves combining flexbox properties, border radius tokens, and subtle shadow properties for iOS and Android elevation.\n\nIn SplitFlat, you use `src/theme.js` to define global design constants like `theme.colors.primary` and `theme.spacing.md`, which are imported across screens and components like `DebtCard.js` and `HomeScreen.js` to guarantee consistent visual hierarchy and branding.",
+        "quiz": [
+          {
+            "question": "What is the default flexDirection in React Native flexbox layouts?",
+            "options": [
+              "flex-start",
+              "wrap",
+              "column",
+              "row"
+            ],
+            "answerIndex": 2,
+            "explanation": "Unlike standard web CSS where block elements stack vertically by default, React Native's default flex direction is 'column', meaning child elements stack top-to-bottom."
+          },
+          {
+            "question": "Why is StyleSheet.create preferred over inline style objects in React Native?",
+            "options": [
+              "It is required to render Text components on Android.",
+              "It automatically converts CSS to native views without JavaScript bridge overhead.",
+              "It enables style optimization and identifier caching by passing numeric references across the bridge.",
+              "It allows the use of media queries."
+            ],
+            "answerIndex": 2,
+            "explanation": "StyleSheet.create processes and validates styles on startup, assigning integer references so only IDs are passed across the React Native bridge during renders rather than full style objects."
+          }
+        ],
+        "challenge": {
+          "task": "Add a new color token 'info' to theme.js under colors and use it in a card border.",
+          "hint": "Open src/theme.js, add info: '#3B82F6' under the colors object, and reference it in one of your screens.",
+          "successCriteria": "The app compiles successfully and the new color token can be imported without errors."
+        }
+      },
+      {
+        "id": "react-navigation-bottom-tabs",
+        "concept": "React Navigation Bottom Tabs",
+        "roadmapLevel": 6,
+        "difficulty": "easy",
+        "whyInYourApp": "SplitFlat uses bottom tabs to let users instantly toggle between core household views: Overview, Expenses, Balances, and Household Settings.",
+        "fileRef": {
+          "path": "App.js",
+          "line": 24
+        },
+        "lesson": "Mobile applications often use bottom tab navigation for top-level routing, allowing users to switch context between distinct functional areas with a single tap. In React Navigation, this is achieved using `@react-navigation/bottom-tabs`.\n\nTab navigators maintain the state of each tab screen by default, preserving scroll positions and form inputs when switching back and forth. You can customize tab appearance by configuring `screenOptions`, where callbacks receive route objects to dynamically render icons using vector icon libraries like `@expo/vector-icons`.\n\nIn SplitFlat's `App.js`, `MainTabs` sets up four primary tabs (`HomeTab`, `ExpensesTab`, `BalancesTab`, and `SettingsTab`). Each tab features customized active/inactive color tinting and conditional icon rendering based on focus state, providing intuitive visual feedback to roommates navigating household expenses.",
+        "quiz": [
+          {
+            "question": "What happens to a screen's local state when you switch away from it in a Bottom Tab Navigator by default?",
+            "options": [
+              "The app crashes due to unhandled memory leaks.",
+              "The screen component unmounts and all state is destroyed.",
+              "The screen reloads its seed data automatically.",
+              "The screen remains mounted in the background, preserving its state and scroll position."
+            ],
+            "answerIndex": 3,
+            "explanation": "By default, React Navigation's bottom tabs keep mounted screens alive in the background so their state and scroll offset are preserved when switching tabs."
+          },
+          {
+            "question": "How do you pass dynamic props like active icon states into tab bar icons?",
+            "options": [
+              "Using the render callback parameters ({ focused, color, size }) provided by screenOptions.",
+              "By querying the DOM element tree.",
+              "Using global redux store subscriptions.",
+              "By reading from the screen's route params."
+            ],
+            "answerIndex": 0,
+            "explanation": "The tab bar icon option accepts a function that receives an object with focused, color, and size properties to style icons appropriately."
+          }
+        ],
+        "challenge": {
+          "task": "Change the active tab bar tint color in App.js to use theme.colors.primaryDark.",
+          "hint": "In App.js inside MainTabs screenOptions, locate tabBarActiveTintColor and change it.",
+          "successCriteria": "The active tab icon and label render with the darker primary color."
+        }
+      },
+      {
+        "id": "react-context-state",
+        "concept": "React Context for State Management",
+        "roadmapLevel": 8,
+        "difficulty": "intermediate",
+        "whyInYourApp": "SplitFlat uses React Context to share expenses, roommates, and settlement records globally across Home, Expenses, Balances, and Settings screens without prop drilling.",
+        "fileRef": {
+          "path": "src/context/ExpenseContext.js",
+          "line": 14
+        },
+        "lesson": "As mobile applications grow beyond simple single-screen prototypes, multiple components often need access to the same core data—such as user profiles, shopping carts, or financial transactions. Passing props down through every intermediate component layer (prop drilling) quickly becomes unmaintainable.\n\nReact Context solves this by providing a way to share values globally across the component tree without explicitly passing props at every level. It consists of two primary parts: `createContext` to establish the data channel, and a Provider component that wraps child nodes and supplies state and action handlers via the `value` prop. Consumer components then access this data instantly using the `useContext` hook.\n\nIn SplitFlat, `src/context/ExpenseContext.js` acts as the central data store. It holds the `expenses`, `roommates`, and `settlements` arrays, and exposes methods like `addExpense`, `deleteExpense`, and `addSettlement` so any screen can update household records seamlessly.",
+        "quiz": [
+          {
+            "question": "What is the primary problem solved by React Context?",
+            "options": [
+              "Slow network request latency",
+              "Prop drilling through deeply nested component trees",
+              "Android build failures",
+              "Memory leaks in FlatLists"
+            ],
+            "answerIndex": 1,
+            "explanation": "React Context eliminates prop drilling by allowing any component in the provider tree to consume shared state directly."
+          },
+          {
+            "question": "Which hook is used to consume values from a React Context in a functional component?",
+            "options": [
+              "useContext",
+              "useState",
+              "useEffect",
+              "useMemo"
+            ],
+            "answerIndex": 0,
+            "explanation": "useContext accepts a context object created by createContext and returns the current context value."
+          }
+        ],
+        "challenge": {
+          "task": "Expose the total expense count from ExpenseContext so it can be consumed in SettingsScreen.",
+          "hint": "In ExpenseContext.js, include expenses.length in the context value object.",
+          "successCriteria": "Any component consuming ExpenseContext can read the total expense count."
+        }
+      },
+      {
+        "id": "async-storage-persistence",
+        "concept": "AsyncStorage persistence",
+        "roadmapLevel": 9,
+        "difficulty": "intermediate",
+        "whyInYourApp": "SplitFlat is offline-first, using AsyncStorage to persist household expenses and roommate balances locally on the device so data remains intact across app restarts.",
+        "fileRef": {
+          "path": "src/context/ExpenseContext.js",
+          "line": 21
+        },
+        "lesson": "Mobile apps must handle app closures and device reboots gracefully. While web apps rely heavily on cloud databases or localStorage, React Native applications running locally require persistent key-value storage solutions such as `@react-native-async-storage/async-storage`.\n\nAsyncStorage is an asynchronous, unencrypted, persistent storage system. Because all reads and writes are asynchronous operations returning Promises, data persistence logic is typically wrapped inside `useEffect` hooks upon component mount and triggered whenever state mutations occur. Since AsyncStorage only stores string key-value pairs, complex JavaScript objects and arrays must be serialized using `JSON.stringify()` before saving and parsed back with `JSON.parse()` upon retrieval.\n\nIn SplitFlat, `ExpenseContext.js` integrates AsyncStorage to save expenses, roommates, and settlements whenever changes happen. This ensures that roommates can track shared household bills offline without fear of data loss when closing the app.",
+        "quiz": [
+          {
+            "question": "What format must data be converted into before storing it in AsyncStorage?",
+            "options": [
+              "JSON String",
+              "SQL Blob",
+              "Base64 Image Stream",
+              "Raw Binary ArrayBuffer"
+            ],
+            "answerIndex": 0,
+            "explanation": "AsyncStorage accepts string keys and string values only, so objects and arrays must be serialized using JSON.stringify()."
+          },
+          {
+            "question": "Why are AsyncStorage methods asynchronous?",
+            "options": [
+              "To synchronize data instantly with cloud servers.",
+              "To comply with HTTP REST API standards.",
+              "Because SQLite requires multi-threading.",
+              "To prevent blocking the React Native JavaScript thread during disk I/O operations."
+            ],
+            "answerIndex": 3,
+            "explanation": "Disk storage operations are asynchronous to prevent blocking the single-threaded JavaScript execution loop, keeping UI animations smooth."
+          }
+        ],
+        "challenge": {
+          "task": "Add a AsyncStorage clear function in ExpenseContext to reset local data back to seed state.",
+          "hint": "Use AsyncStorage.multiRemove([STORAGE_KEYS.EXPENSES, STORAGE_KEYS.ROOMMATES]) inside a reset function.",
+          "successCriteria": "Calling the reset function clears stored keys and resets state back to initial values."
+        }
+      }
+    ],
+    "nextSteps": [
+      "Explore FlatList optimization techniques like getItemLayout for large expense histories.",
+      "Implement receipt photo capturing using Expo ImagePicker instead of pasting image URLs.",
+      "Add unit tests for the debt simplification algorithm in BalancesScreen using Jest."
+    ]
+  }
+}

@@ -20,7 +20,6 @@ export interface ParsedFileStream {
 }
 
 const NOTES_OPEN = "<<<NOTES>>>";
-const NOTES_CLOSE = "<<<END NOTES>>>";
 const FILE_OPEN = /<<<FILE\s+([^>\n]+?)\s*>>>/g;
 // Models sometimes emit "<<<END FILE>" or "<<< END FILE >>"; accept any close-ish marker.
 const FILE_CLOSE = /<<<\s*END\s*FILE\s*>*/;
@@ -33,9 +32,9 @@ function parseNotes(text: string): string {
   const start = text.indexOf(NOTES_OPEN);
   if (start === -1) return "";
   const bodyStart = start + NOTES_OPEN.length;
-  const end = text.indexOf(NOTES_CLOSE, bodyStart);
-  const fileStart = text.indexOf("<<<FILE", bodyStart);
-  const stop = end !== -1 ? end : fileStart !== -1 ? fileStart : text.length;
+  // Notes never contain "<<<", so the first marker of any kind ends them — robust to a wrong close marker.
+  const marker = text.indexOf("<<<", bodyStart);
+  const stop = marker !== -1 ? marker : text.length;
   // Models sometimes echo the format hint ("markdown:") as the first word.
   return text.slice(bodyStart, stop).trim().replace(/^markdown:\s*/i, "");
 }

@@ -67,6 +67,13 @@ describe("parseFileStream", () => {
     expect(parseFileStream(text).files.map((f) => f.content)).toEqual(["const a = 1;\n", "const b = 2;\n"]);
   });
 
+  test("notes stop at any protocol marker, even a wrong close marker", () => {
+    const text = "<<<NOTES>>>\n- Built it\n<<<END FILE>>>\n<<<FILE a.js>>>\nx\n<<<END FILE>>>";
+    const result = parseFileStream(text);
+    expect(result.notes).toBe("- Built it");
+    expect(result.files).toEqual([{ path: "a.js", content: "x\n" }]);
+  });
+
   test("returns empty result for empty input", () => {
     expect(parseFileStream("")).toEqual({ notes: "", files: [], partial: null });
   });

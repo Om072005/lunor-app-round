@@ -8,7 +8,7 @@ into lessons mapped to Lunor's App Development roadmap.
 
 > Prompt → **Understand → Plan → Build → Explain → Learn**
 
-Live demo: _see deployment link in the submission_ · No API key? Open one of the **sample projects** on the home page.
+**Live demo: https://lunor-app-studio-omega.vercel.app** · No API key needed to explore: open one of the **sample projects** (HabitPulse, SplitFlat) on the home page.
 
 ---
 

@@ -47,3 +47,6 @@ AGENTS.md
 # test artifacts
 /test-results/
 /playwright-report/
+
+.vercel
+.env*

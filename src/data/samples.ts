@@ -26,4 +26,12 @@ export const SAMPLES: SampleMeta[] = [
     stats: ["3 milestones", "8 files", "5 lessons"],
     load: () => import("./samples/habit-tracker.json").then(asProject),
   },
+  {
+    slug: "expense-splitter",
+    name: "SplitFlat — roommate expense splitter",
+    emoji: "💸",
+    blurb: "Log shared bills, see live balances and settle up who owes whom.",
+    stats: ["3 milestones", "13 files", "6 screens", "4 lessons"],
+    load: () => import("./samples/expense-splitter.json").then(asProject),
+  },
 ];
