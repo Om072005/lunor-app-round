@@ -1,4 +1,6 @@
+import { getSupportedSDKVersions, isModulePreloaded } from "snack-sdk";
 import { describe, expect, test } from "vitest";
+import { EXPO_SDK_VERSION, PRELOADED_PACKAGES } from "../constants";
 import {
   buildImportGraph,
   checkProject,
@@ -94,9 +96,39 @@ describe("checkProject", () => {
     expect(kinds).toContain("missing-file");
   });
 
+  test("flags JavaScript/JSX syntax errors with a line number", () => {
+    const files = {
+      "App.js": "export default function App() { return <View><Text>hi</Text></View>; }",
+      "src/Broken.js": "export default function B() {\n  return (\n    <View>\n  );\n}\n<<<END FILE>",
+    };
+    const issues = checkProject(files);
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({ path: "src/Broken.js", kind: "syntax-error" });
+    expect(issues[0].message).toMatch(/line \d+/);
+  });
+
+  test("accepts modern JS: optional chaining, spread, async, template literals", () => {
+    const code = "export default async function f(a) { const x = a?.b ?? {...a}; await g(`v${x}`); return <A {...x} />; }";
+    expect(checkProject({ "App.js": code })).toEqual([]);
+  });
+
   test("flags entry without default export", () => {
     const issues = checkProject({ "App.js": "const App = () => null;" });
     expect(issues.map((i) => i.kind)).toEqual(["no-default-export"]);
+  });
+});
+
+describe("Snack compatibility", () => {
+  test("every package we treat as preloaded really is preloaded by Snack", () => {
+    for (const name of PRELOADED_PACKAGES) expect(isModulePreloaded(name, EXPO_SDK_VERSION as never), name).toBe(true);
+  });
+
+  test("the target Expo SDK is supported by Snack", () => {
+    expect(getSupportedSDKVersions()).toContain(EXPO_SDK_VERSION);
+  });
+
+  test("expo-status-bar is declared as a dependency (it is not preloaded)", () => {
+    expect(snackDependencies({ "App.js": "import { StatusBar } from 'expo-status-bar';" })).toHaveProperty("expo-status-bar");
   });
 });
 

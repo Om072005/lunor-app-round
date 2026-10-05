@@ -7,7 +7,7 @@ import { CodeEditor } from "@/components/CodeEditor";
 import { FileTree } from "@/components/FileTree";
 import { PhonePreview } from "@/components/PhonePreview";
 import { Button } from "@/components/ui";
-import { downloadProjectZip } from "@/lib/expo-export";
+import { downloadProjectZip } from "@/lib/download";
 import { nextMilestone } from "@/lib/project";
 import { checkProject } from "@/lib/project-files";
 import { useProjects } from "@/lib/store";

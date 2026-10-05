@@ -12,6 +12,7 @@ export function POST(request: Request) {
     if (!milestone) throw new AiError("BAD_REQUEST", "Unknown milestone.");
     const stream = await streamText({
       apiKey,
+      tier: "quality",
       system: BUILD_SYSTEM,
       prompt: buildPrompt(body.brief, body.plan, milestone, body.files),
       temperature: 0.4,

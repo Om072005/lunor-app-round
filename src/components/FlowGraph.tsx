@@ -82,7 +82,7 @@ export function FlowGraph({
         nodeTypes={nodeTypes}
         colorMode="dark"
         fitView
-        fitViewOptions={{ padding: 0.2 }}
+        fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
         nodesConnectable={false}
         nodesDraggable
         proOptions={{ hideAttribution: true }}

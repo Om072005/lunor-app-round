@@ -118,22 +118,20 @@ export default function Home() {
             <Eyebrow>Explore instantly — no API key needed</Eyebrow>
             <h2 className="mt-2 text-2xl font-bold">Fully built sample projects</h2>
             <div className="mt-6 grid gap-4 md:grid-cols-2">
-              {SAMPLES.map(({ project, emoji, blurb }) => (
+              {SAMPLES.map((sample) => (
                 <button
-                  key={project.id}
-                  onClick={() => router.push(`/studio/${addSample(project)}`)}
+                  key={sample.slug}
+                  onClick={async () => router.push(`/studio/${addSample(await sample.load())}`)}
                   className="group flex items-start gap-4 rounded-2xl border border-line bg-surface p-5 text-left transition-colors hover:border-accent/50"
                 >
-                  <span className="text-3xl" aria-hidden>{emoji}</span>
+                  <span className="text-3xl" aria-hidden>{sample.emoji}</span>
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-2 font-semibold">
-                      {project.brief?.name} <ArrowRight className="size-4 text-accent opacity-0 transition-opacity group-hover:opacity-100" />
+                      {sample.name} <ArrowRight className="size-4 text-accent opacity-0 transition-opacity group-hover:opacity-100" />
                     </span>
-                    <span className="mt-1 block text-sm text-muted">{blurb}</span>
+                    <span className="mt-1 block text-sm text-muted">{sample.blurb}</span>
                     <span className="mt-3 flex flex-wrap gap-1.5">
-                      <Badge>{Object.keys(project.files).length} files</Badge>
-                      <Badge>{project.plan?.screens.length} screens</Badge>
-                      <Badge>{project.learning?.lessons.length} lessons</Badge>
+                      {sample.stats.map((s) => <Badge key={s}>{s}</Badge>)}
                     </span>
                   </span>
                 </button>

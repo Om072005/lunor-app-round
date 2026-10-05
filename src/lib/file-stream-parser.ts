@@ -22,7 +22,8 @@ export interface ParsedFileStream {
 const NOTES_OPEN = "<<<NOTES>>>";
 const NOTES_CLOSE = "<<<END NOTES>>>";
 const FILE_OPEN = /<<<FILE\s+([^>\n]+?)\s*>>>/g;
-const FILE_CLOSE = "<<<END FILE>>>";
+// Models sometimes emit "<<<END FILE>" or "<<< END FILE >>"; accept any close-ish marker.
+const FILE_CLOSE = /<<<\s*END\s*FILE\s*>*/;
 
 export function parseFileStream(text: string): ParsedFileStream {
   return { notes: parseNotes(text), ...parseFiles(text) };
@@ -35,23 +36,30 @@ function parseNotes(text: string): string {
   const end = text.indexOf(NOTES_CLOSE, bodyStart);
   const fileStart = text.indexOf("<<<FILE", bodyStart);
   const stop = end !== -1 ? end : fileStart !== -1 ? fileStart : text.length;
-  return text.slice(bodyStart, stop).trim();
+  // Models sometimes echo the format hint ("markdown:") as the first word.
+  return text.slice(bodyStart, stop).trim().replace(/^markdown:\s*/i, "");
 }
 
 function parseFiles(text: string): Pick<ParsedFileStream, "files" | "partial"> {
   const byPath = new Map<string, string>();
   let partial: GeneratedFile | null = null;
 
-  for (const match of text.matchAll(FILE_OPEN)) {
+  const openers = [...text.matchAll(FILE_OPEN)];
+  openers.forEach((match, i) => {
     const path = match[1].trim();
     const bodyStart = (match.index ?? 0) + match[0].length;
-    const end = text.indexOf(FILE_CLOSE, bodyStart);
-    if (end === -1) {
-      partial = { path, content: stripFences(text.slice(bodyStart), false) };
-      break;
+    // A block never extends past the next FILE opener, even if its close marker is missing or malformed.
+    const next = openers[i + 1];
+    const region = text.slice(bodyStart, next ? next.index : text.length);
+    const close = region.match(FILE_CLOSE);
+    if (close) {
+      byPath.set(path, stripFences(region.slice(0, close.index), true));
+    } else if (next) {
+      byPath.set(path, stripFences(region, true));
+    } else {
+      partial = { path, content: stripFences(region, false) };
     }
-    byPath.set(path, stripFences(text.slice(bodyStart, end), true));
-  }
+  });
 
   const files = [...byPath.entries()].map(([path, content]) => ({ path, content }));
   return { files, partial };

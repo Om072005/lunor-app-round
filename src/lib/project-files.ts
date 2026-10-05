@@ -1,10 +1,26 @@
+import { Parser } from "acorn";
+import jsx from "acorn-jsx";
 import { ALLOWED_PACKAGES, ENTRY_FILE, NAVIGATION_PEERS, PRELOADED_PACKAGES } from "./constants";
+
+const JsxParser = Parser.extend(jsx());
+
+/** Returns a readable syntax error for JS/JSX source, or null when it parses. */
+export function syntaxError(code: string): string | null {
+  try {
+    JsxParser.parse(code, { ecmaVersion: "latest", sourceType: "module", locations: true });
+    return null;
+  } catch (err) {
+    const e = err as Error & { loc?: { line: number; column: number } };
+    const where = e.loc ? ` at line ${e.loc.line}, column ${e.loc.column + 1}` : "";
+    return `Syntax error${where}: ${e.message.replace(/\s*\(\d+:\d+\)$/, "")}`;
+  }
+}
 
 /** Static analysis of a generated Expo project: imports, validation, dependency and graph extraction. */
 
 export type ProjectFiles = Readonly<Record<string, string>>;
 
-export type IssueKind = "missing-entry" | "no-default-export" | "unknown-package" | "missing-file";
+export type IssueKind = "missing-entry" | "no-default-export" | "unknown-package" | "missing-file" | "syntax-error";
 
 export interface ProjectIssue {
   path: string;
@@ -87,6 +103,9 @@ export function checkProject(files: ProjectFiles): ProjectIssue[] {
 
   for (const [path, code] of Object.entries(files)) {
     if (!/\.(js|jsx|ts|tsx)$/.test(path)) continue;
+    // Acorn parses JS/JSX only; generated apps are JavaScript, TS files skip the syntax pass.
+    const syntax = /\.(js|jsx)$/.test(path) ? syntaxError(code) : null;
+    if (syntax) issues.push({ path, kind: "syntax-error", message: syntax });
     for (const spec of extractImports(code)) {
       if (isRelative(spec)) {
         if (!resolveImport(path, spec, files)) {

@@ -20,8 +20,11 @@ export const ALLOWED_PACKAGES: Readonly<Record<string, string>> = {
   "@react-native-async-storage/async-storage": "*",
 };
 
-/** Packages Snack bundles by default, so they never need to be declared as dependencies. */
-export const PRELOADED_PACKAGES = new Set(["react", "react-native", "expo", "@expo/vector-icons", "expo-status-bar"]);
+/**
+ * Packages Snack bundles by default, so they never need to be declared as dependencies.
+ * Verified against snack-sdk's isModulePreloaded in tests — expo-status-bar is NOT preloaded.
+ */
+export const PRELOADED_PACKAGES = new Set(["react", "react-native", "expo", "@expo/vector-icons"]);
 
 /** Peer dependencies that must ship alongside react-navigation. */
 export const NAVIGATION_PEERS = ["react-native-screens", "react-native-safe-area-context"];

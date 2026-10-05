@@ -1,0 +1,836 @@
+{
+  "id": "habit-tracker",
+  "idea": "A habit tracker for college students with daily check-ins, streaks and a weekly progress view",
+  "createdAt": 1791212935806,
+  "updatedAt": 1791212935806,
+  "currentStage": "build",
+  "answers": {
+    "audience": [
+      "Just me and a few friends"
+    ],
+    "core_loop": [
+      "Streak resets completely to zero"
+    ],
+    "offline_needs": [
+      "Yes, local storage only is fine"
+    ],
+    "monetisation": [
+      "100% free and open-source"
+    ]
+  },
+  "planApproved": true,
+  "files": {
+    "src/theme.js": "// Centralized styling tokens for consistent design across mobile screens.\nexport const theme = {\n  colors: {\n    background: '#0F172A', // Deep slate background for a modern dark mode feel\n    cardBackground: '#1E293B',\n    primary: '#6366F1', // Indigo accent representing focus and productivity\n    primaryLight: 'rgba(99, 102, 241, 0.15)',\n    success: '#10B981', // Emerald green for completed habits & streaks\n    textPrimary: '#F8FAFC',\n    textSecondary: '#94A3B8',\n    border: '#334155',\n    danger: '#EF4444',\n  },\n  spacing: {\n    xs: 4,\n    sm: 8,\n    md: 16,\n    lg: 24,\n    xl: 32,\n  },\n  borderRadius: {\n    sm: 8,\n    md: 12,\n    lg: 16,\n    full: 9999,\n  },\n  fontSizes: {\n    sm: 12,\n    md: 14,\n    lg: 16,\n    xl: 20,\n    xxl: 28,\n  },\n};\n",
+    "src/screens/HomeScreen.js": "import React, { useContext } from 'react';\nimport { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';\nimport { Ionicons } from '@expo/vector-icons';\nimport { theme } from '../theme';\nimport { HabitContext } from '../context/HabitContext';\nimport HabitCard from '../components/HabitCard';\nimport EmptyState from '../components/EmptyState';\n\n// HomeScreen lists today's habits with instant check-in toggling\nexport default function HomeScreen({ navigation }) {\n  const { habits, deleteHabit, toggleCheckIn, loading } = useContext(HabitContext);\n\n  if (loading) {\n    return (\n      <View style={[styles.container, styles.centered]}>\n        <Text style={styles.placeholderText}>Loading routines...</Text>\n      </View>\n    );\n  }\n\n  return (\n    <View style={styles.container}>\n      <View style={styles.header}>\n        <View>\n          <Text style={styles.subtitle}>TODAY'S PULSE</Text>\n          <Text style={styles.title}>Build Consistency</Text>\n        </View>\n        <TouchableOpacity\n          style={styles.addButton}\n          onPress={() => navigation.navigate('CreateHabit')}\n          accessibilityLabel=\"Create new habit\"\n        >\n          <Ionicons name=\"add\" size={24} color={theme.colors.textPrimary} />\n        </TouchableOpacity>\n      </View>\n\n      {habits.length === 0 ? (\n        <EmptyState\n          icon=\"flash-outline\"\n          title=\"No habits tracked yet\"\n          message=\"Tap the button below or above to add your first daily routine and start your streak.\"\n          ctaLabel=\"Create Habit\"\n          onCta={() => navigation.navigate('CreateHabit')}\n        />\n      ) : (\n        <FlatList\n          data={habits}\n          keyExtractor={(item) => item.id}\n          renderItem={({ item }) => (\n            <HabitCard\n              habit={item}\n              onToggleCheckIn={toggleCheckIn}\n              onDelete={deleteHabit}\n            />\n          )}\n          contentContainerStyle={styles.listContainer}\n        />\n      )}\n    </View>\n  );\n}\n\nconst styles = StyleSheet.create({\n  container: {\n    flex: 1,\n    backgroundColor: theme.colors.background,\n    padding: theme.spacing.lg,\n  },\n  centered: {\n    justifyContent: 'center',\n    alignItems: 'center',\n  },\n  header: {\n    flexDirection: 'row',\n    justifyContent: 'space-between',\n    alignItems: 'center',\n    marginBottom: theme.spacing.lg,\n  },\n  subtitle: {\n    fontSize: theme.fontSizes.sm,\n    color: theme.colors.primary,\n    fontWeight: '700',\n    letterSpacing: 1,\n  },\n  title: {\n    fontSize: theme.fontSizes.xxl,\n    fontWeight: 'bold',\n    color: theme.colors.textPrimary,\n  },\n  addButton: {\n    backgroundColor: theme.colors.primary,\n    padding: theme.spacing.sm,\n    borderRadius: theme.borderRadius.full,\n    justifyContent: 'center',\n    alignItems: 'center',\n  },\n  listContainer: {\n    paddingBottom: theme.spacing.xl,\n  },\n  placeholderText: {\n    fontSize: theme.fontSizes.md,\n    color: theme.colors.textSecondary,\n  },\n});\n",
+    "src/screens/CreateHabitScreen.js": "import React, { useState, useContext } from 'react';\nimport { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView } from 'react-native';\nimport { Ionicons } from '@expo/vector-icons';\nimport { theme } from '../theme';\nimport { HabitContext } from '../context/HabitContext';\n\nconst FREQUENCIES = ['Daily', 'Weekdays', 'Weekends'];\n\n// CreateHabitScreen allows inputting a new habit title and frequency\nexport default function CreateHabitScreen({ navigation }) {\n  const [title, setTitle] = useState('');\n  const [frequency, setFrequency] = useState('Daily');\n  const [error, setError] = useState('');\n  const { addHabit } = useContext(HabitContext);\n\n  const handleSave = () => {\n    if (!title.trim()) {\n      setError('Please enter a habit title');\n      return;\n    }\n    addHabit(title.trim(), frequency);\n    navigation.goBack();\n  };\n\n  return (\n    <ScrollView style={styles.container}>\n      <View style={styles.header}>\n        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>\n          <Ionicons name=\"arrow-back\" size={20} color={theme.colors.textPrimary} />\n        </TouchableOpacity>\n        <Text style={styles.title}>New Habit</Text>\n      </View>\n\n      <View style={styles.card}>\n        <Text style={styles.label}>Habit Title</Text>\n        <TextInput\n          style={styles.input}\n          placeholder=\"e.g. Morning Jog, Code for 1 hour\"\n          placeholderTextColor={theme.colors.textSecondary}\n          value={title}\n          onChangeText={(text) => {\n            setTitle(text);\n            if (error) setError('');\n          }}\n          autoFocus\n        />\n        {error ? <Text style={styles.errorText}>{error}</Text> : null}\n\n        <Text style={styles.label}>Target Frequency</Text>\n        <View style={styles.frequencyContainer}>\n          {FREQUENCIES.map((freq) => {\n            const isSelected = frequency === freq;\n            return (\n              <TouchableOpacity\n                key={freq}\n                style={[styles.freqChip, isSelected && styles.freqChipSelected]}\n                onPress={() => setFrequency(freq)}\n              >\n                <Text style={[styles.freqText, isSelected && styles.freqTextSelected]}>\n                  {freq}\n                </Text>\n              </TouchableOpacity>\n            );\n          })}\n        </View>\n\n        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>\n          <Text style={styles.saveButtonText}>Save Habit</Text>\n        </TouchableOpacity>\n      </View>\n    </ScrollView>\n  );\n}\n\nconst styles = StyleSheet.create({\n  container: {\n    flex: 1,\n    backgroundColor: theme.colors.background,\n    padding: theme.spacing.lg,\n  },\n  header: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    marginBottom: theme.spacing.lg,\n  },\n  backButton: {\n    padding: theme.spacing.xs,\n    marginRight: theme.spacing.sm,\n    backgroundColor: theme.colors.cardBackground,\n    borderRadius: theme.borderRadius.sm,\n  },\n  title: {\n    fontSize: theme.fontSizes.xl,\n    fontWeight: 'bold',\n    color: theme.colors.textPrimary,\n  },\n  card: {\n    backgroundColor: theme.colors.cardBackground,\n    borderRadius: theme.borderRadius.lg,\n    padding: theme.spacing.lg,\n    borderWidth: 1,\n    borderColor: theme.colors.border,\n  },\n  label: {\n    fontSize: theme.fontSizes.md,\n    fontWeight: '600',\n    color: theme.colors.textPrimary,\n    marginBottom: theme.spacing.xs,\n    marginTop: theme.spacing.md,\n  },\n  input: {\n    backgroundColor: theme.colors.background,\n    borderWidth: 1,\n    borderColor: theme.colors.border,\n    borderRadius: theme.borderRadius.md,\n    padding: theme.spacing.md,\n    color: theme.colors.textPrimary,\n    fontSize: theme.fontSizes.md,\n  },\n  errorText: {\n    color: theme.colors.danger,\n    fontSize: theme.fontSizes.sm,\n    marginTop: theme.spacing.xs,\n  },\n  frequencyContainer: {\n    flexDirection: 'row',\n    marginBottom: theme.spacing.xl,\n    marginTop: theme.spacing.xs,\n  },\n  freqChip: {\n    flex: 1,\n    paddingVertical: theme.spacing.sm,\n    paddingHorizontal: theme.spacing.sm,\n    borderWidth: 1,\n    borderColor: theme.colors.border,\n    borderRadius: theme.borderRadius.md,\n    alignItems: 'center',\n    marginRight: theme.spacing.sm,\n    backgroundColor: theme.colors.background,\n  },\n  freqChipSelected: {\n    borderColor: theme.colors.primary,\n    backgroundColor: theme.colors.primaryLight,\n  },\n  freqText: {\n    color: theme.colors.textSecondary,\n    fontSize: theme.fontSizes.sm,\n    fontWeight: '500',\n  },\n  freqTextSelected: {\n    color: theme.colors.primary,\n    fontWeight: 'bold',\n  },\n  saveButton: {\n    backgroundColor: theme.colors.primary,\n    padding: theme.spacing.md,\n    borderRadius: theme.borderRadius.md,\n    alignItems: 'center',\n  },\n  saveButtonText: {\n    color: theme.colors.textPrimary,\n    fontWeight: 'bold',\n    fontSize: theme.fontSizes.md,\n  },\n});\n",
+    "src/screens/ProgressScreen.js": "import React, { useContext } from 'react';\nimport { View, Text, StyleSheet, ScrollView } from 'react-native';\nimport { Ionicons } from '@expo/vector-icons';\nimport { theme } from '../theme';\nimport { HabitContext } from '../context/HabitContext';\nimport EmptyState from '../components/EmptyState';\n\n// Helper to generate past 7 days array with formatted weekday labels\nfunction getPast7Days() {\n  const days = [];\n  const today = new Date();\n  for (let i = 6; i >= 0; i--) {\n    const d = new Date(today);\n    d.setDate(today.getDate() - i);\n    const dateKey = d.toISOString().split('T')[0];\n    const weekday = d.toLocaleDateString('en-US', { weekday: 'short' });\n    days.push({ dateKey, weekday, dayNum: d.getDate() });\n  }\n  return days;\n}\n\n// ProgressScreen visualizes completion rates over the past 7 days in a clean grid\nexport default function ProgressScreen({ navigation }) {\n  const { habits, loading } = useContext(HabitContext);\n  const pastDays = getPast7Days();\n\n  if (loading) {\n    return (\n      <View style={[styles.container, styles.centered]}>\n        <Text style={styles.loadingText}>Loading progress...</Text>\n      </View>\n    );\n  }\n\n  return (\n    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>\n      <Text style={styles.subtitle}>ANALYTICS</Text>\n      <Text style={styles.title}>Weekly Progress</Text>\n\n      {habits.length === 0 ? (\n        <EmptyState\n          icon=\"stats-chart-outline\"\n          title=\"No progress data\"\n          message=\"Create and track habits to visualize your 7-day consistency grid.\"\n          ctaLabel=\"Go to Today\"\n          onCta={() => navigation.navigate('Today')}\n        />\n      ) : (\n        habits.map((habit) => {\n          return (\n            <View key={habit.id} style={styles.habitCard}>\n              <View style={styles.habitHeader}>\n                <Text style={styles.habitTitle}>{habit.title}</Text>\n                <View style={styles.streakInfo}>\n                  <Ionicons name=\"flame\" size={14} color={theme.colors.success} />\n                  <Text style={styles.streakNumber}>{habit.streak} day streak</Text>\n                </View>\n              </View>\n\n              <View style={styles.gridContainer}>\n                {pastDays.map(({ dateKey, weekday }) => {\n                  const isCompleted = !!habit.history[dateKey];\n                  return (\n                    <View key={dateKey} style={styles.dayColumn}>\n                      <Text style={styles.weekdayText}>{weekday}</Text>\n                      <View\n                        style={[\n                          styles.dayBox,\n                          isCompleted ? styles.dayCompleted : styles.dayIncomplete,\n                        ]}\n                      >\n                        {isCompleted && (\n                          <Ionicons name=\"checkmark\" size={14} color={theme.colors.textPrimary} />\n                        )}\n                      </View>\n                    </View>\n                  );\n                })}\n              </View>\n            </View>\n          );\n        })\n      )}\n    </ScrollView>\n  );\n}\n\nconst styles = StyleSheet.create({\n  container: {\n    flex: 1,\n    backgroundColor: theme.colors.background,\n    padding: theme.spacing.lg,\n  },\n  scrollContent: {\n    paddingBottom: theme.spacing.xl,\n  },\n  centered: {\n    justifyContent: 'center',\n    alignItems: 'center',\n  },\n  loadingText: {\n    color: theme.colors.textSecondary,\n    fontSize: theme.fontSizes.md,\n  },\n  subtitle: {\n    fontSize: theme.fontSizes.sm,\n    color: theme.colors.success,\n    fontWeight: '700',\n    letterSpacing: 1,\n  },\n  title: {\n    fontSize: theme.fontSizes.xxl,\n    fontWeight: 'bold',\n    color: theme.colors.textPrimary,\n    marginBottom: theme.spacing.lg,\n  },\n  habitCard: {\n    backgroundColor: theme.colors.cardBackground,\n    borderRadius: theme.borderRadius.lg,\n    padding: theme.spacing.md,\n    marginBottom: theme.spacing.md,\n    borderWidth: 1,\n    borderColor: theme.colors.border,\n  },\n  habitHeader: {\n    flexDirection: 'row',\n    justifyContent: 'space-between',\n    alignItems: 'center',\n    marginBottom: theme.spacing.md,\n  },\n  habitTitle: {\n    fontSize: theme.fontSizes.lg,\n    fontWeight: '600',\n    color: theme.colors.textPrimary,\n    flex: 1,\n    marginRight: theme.spacing.sm,\n  },\n  streakInfo: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    backgroundColor: 'rgba(16, 185, 129, 0.1)',\n    paddingHorizontal: 8,\n    paddingVertical: 4,\n    borderRadius: theme.borderRadius.full,\n  },\n  streakNumber: {\n    fontSize: theme.fontSizes.sm,\n    color: theme.colors.success,\n    fontWeight: '600',\n    marginLeft: 4,\n  },\n  gridContainer: {\n    flexDirection: 'row',\n    justifyContent: 'space-between',\n  },\n  dayColumn: {\n    alignItems: 'center',\n    flex: 1,\n  },\n  weekdayText: {\n    fontSize: theme.fontSizes.sm,\n    color: theme.colors.textSecondary,\n    marginBottom: 6,\n    textTransform: 'uppercase',\n  },\n  dayBox: {\n    width: 34,\n    height: 34,\n    borderRadius: theme.borderRadius.sm,\n    justifyContent: 'center',\n    alignItems: 'center',\n    borderWidth: 1,\n  },\n  dayCompleted: {\n    backgroundColor: theme.colors.success,\n    borderColor: theme.colors.success,\n  },\n  dayIncomplete: {\n    backgroundColor: theme.colors.background,\n    borderColor: theme.colors.border,\n  },\n});\n",
+    "App.js": "import React from 'react';\nimport { NavigationContainer } from '@react-navigation/native';\nimport { createNativeStackNavigator } from '@react-navigation/native-stack';\nimport { createBottomTabNavigator } from '@react-navigation/bottom-tabs';\nimport { StatusBar } from 'expo-status-bar';\nimport { Ionicons } from '@expo/vector-icons';\n\nimport HomeScreen from './src/screens/HomeScreen';\nimport CreateHabitScreen from './src/screens/CreateHabitScreen';\nimport ProgressScreen from './src/screens/ProgressScreen';\nimport { theme } from './src/theme';\nimport { HabitProvider } from './src/context/HabitContext';\n\nconst Stack = createNativeStackNavigator();\nconst Tab = createBottomTabNavigator();\n\n// Stack navigator for home and habit creation flow\nfunction HomeStack() {\n  return (\n    <Stack.Navigator screenOptions={{ headerShown: false }}>\n      <Stack.Screen name=\"HomeMain\" component={HomeScreen} />\n      <Stack.Screen name=\"CreateHabit\" component={CreateHabitScreen} />\n    </Stack.Navigator>\n  );\n}\n\n// Bottom tab navigation linking Home/Habits and Weekly Progress\nfunction TabNavigator() {\n  return (\n    <Tab.Navigator\n      screenOptions={({ route }) => ({\n        headerShown: false,\n        tabBarStyle: {\n          backgroundColor: theme.colors.cardBackground,\n          borderTopColor: theme.colors.border,\n          height: 60,\n          paddingBottom: 8,\n          paddingTop: 8,\n        },\n        tabBarActiveTintColor: theme.colors.primary,\n        tabBarInactiveTintColor: theme.colors.textSecondary,\n        tabBarIcon: ({ focused, color, size }) => {\n          let iconName = 'ellipse';\n          if (route.name === 'Today') {\n            iconName = focused ? 'flash' : 'flash-outline';\n          } else if (route.name === 'Progress') {\n            iconName = focused ? 'stats-chart' : 'stats-chart-outline';\n          }\n          return <Ionicons name={iconName} size={size} color={color} />;\n        },\n      })}\n    >\n      <Tab.Screen name=\"Today\" component={HomeStack} />\n      <Tab.Screen name=\"Progress\" component={ProgressScreen} />\n    </Tab.Navigator>\n  );\n}\n\n// Root application component wrapped with HabitProvider for state and persistence\nexport default function App() {\n  return (\n    <HabitProvider>\n      <NavigationContainer>\n        <StatusBar style=\"light\" />\n        <TabNavigator />\n      </NavigationContainer>\n    </HabitProvider>\n  );\n}\n",
+    "src/context/HabitContext.js": "import React, { createContext, useState, useEffect } from 'react';\nimport AsyncStorage from '@react-native-async-storage/async-storage';\n\nconst STORAGE_KEY = '@habit_pulse_habits_v1';\n\n// Helper to calculate streak based on history record and target frequency\nexport function calculateStreak(history = {}) {\n  let streak = 0;\n  const today = new Date();\n  \n  // Iterate backwards from today to count consecutive completions\n  for (let i = 0; i < 30; i++) {\n    const d = new Date(today);\n    d.setDate(today.getDate() - i);\n    const dateKey = d.toISOString().split('T')[0];\n\n    if (history[dateKey]) {\n      streak++;\n    } else if (i === 0) {\n      // If today is not checked in yet, don't break the streak immediately; check yesterday\n      continue;\n    } else {\n      break;\n    }\n  }\n  return streak;\n}\n\n// Generate default seed history for past 3 days so cards look active\nconst getInitialHistory = () => {\n  const history = {};\n  const today = new Date();\n  for (let i = 1; i <= 3; i++) {\n    const d = new Date(today);\n    d.setDate(today.getDate() - i);\n    history[d.toISOString().split('T')[0]] = true;\n  }\n  return history;\n};\n\nconst INITIAL_HABITS = [\n  {\n    id: '1',\n    title: 'Morning Hydration 💧',\n    targetFrequency: 'Daily',\n    streak: 3,\n    history: getInitialHistory(),\n    createdAt: new Date().toISOString(),\n  },\n  {\n    id: '2',\n    title: 'Read 20 Pages 📖',\n    targetFrequency: 'Daily',\n    streak: 3,\n    history: getInitialHistory(),\n    createdAt: new Date().toISOString(),\n  },\n];\n\nexport const HabitContext = createContext();\n\nexport function HabitProvider({ children }) {\n  const [habits, setHabits] = useState([]);\n  const [loading, setLoading] = useState(true);\n\n  useEffect(() => {\n    async function loadStoredHabits() {\n      try {\n        const stored = await AsyncStorage.getItem(STORAGE_KEY);\n        if (stored) {\n          const parsed = JSON.parse(stored);\n          // Recalculate streaks on load in case days passed\n          const updated = parsed.map((h) => ({\n            ...h,\n            streak: calculateStreak(h.history),\n          }));\n          setHabits(updated);\n        } else {\n          setHabits(INITIAL_HABITS);\n          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_HABITS));\n        }\n      } catch (e) {\n        console.error('Failed to load habits from storage', e);\n      } finally {\n        setLoading(false);\n      }\n    }\n    loadStoredHabits();\n  }, []);\n\n  const saveHabits = async (newHabits) => {\n    try {\n      setHabits(newHabits);\n      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newHabits));\n    } catch (e) {\n      console.error('Failed to save habits to storage', e);\n    }\n  };\n\n  const addHabit = (title, targetFrequency) => {\n    const newHabit = {\n      id: Date.now().toString(),\n      title,\n      targetFrequency,\n      streak: 0,\n      history: {},\n      createdAt: new Date().toISOString(),\n    };\n    saveHabits([newHabit, ...habits]);\n  };\n\n  const deleteHabit = (id) => {\n    const filtered = habits.filter((h) => h.id !== id);\n    saveHabits(filtered);\n  };\n\n  // Toggle check-in status for today and recompute streaks\n  const toggleCheckIn = (id) => {\n    const todayKey = new Date().toISOString().split('T')[0];\n    const updated = habits.map((habit) => {\n      if (habit.id === id) {\n        const newHistory = { ...habit.history };\n        if (newHistory[todayKey]) {\n          delete newHistory[todayKey];\n        } else {\n          newHistory[todayKey] = true;\n        }\n        const newStreak = calculateStreak(newHistory);\n        return { ...habit, history: newHistory, streak: newStreak };\n      }\n      return habit;\n    });\n    saveHabits(updated);\n  };\n\n  return (\n    <HabitContext.Provider value={{ habits, loading, addHabit, deleteHabit, toggleCheckIn }}>\n      {children}\n    </HabitContext.Provider>\n  );\n}\n",
+    "src/components/HabitCard.js": "import React from 'react';\nimport { View, Text, StyleSheet, TouchableOpacity } from 'react-native';\nimport { Ionicons } from '@expo/vector-icons';\nimport { theme } from '../theme';\n\n// HabitCard handles check-in toggling for today alongside deletion and streaks\nexport default function HabitCard({ habit, onToggleCheckIn, onDelete }) {\n  // Format today's date key YYYY-MM-DD in local time\n  const todayKey = new Date().toISOString().split('T')[0];\n  const isCompletedToday = !!habit.history[todayKey];\n\n  return (\n    <View style={[styles.card, isCompletedToday && styles.cardCompleted]}>\n      <View style={styles.leftSection}>\n        <TouchableOpacity\n          style={[styles.checkbox, isCompletedToday && styles.checkboxCompleted]}\n          onPress={() => onToggleCheckIn(habit.id)}\n          accessibilityLabel={`Toggle check-in for ${habit.title}`}\n        >\n          {isCompletedToday && <Ionicons name=\"checkmark\" size={16} color={theme.colors.textPrimary} />}\n        </TouchableOpacity>\n\n        <View style={styles.textContainer}>\n          <Text style={[styles.title, isCompletedToday && styles.titleCompleted]}>\n            {habit.title}\n          </Text>\n          <View style={styles.metaRow}>\n            <Text style={styles.frequency}>{habit.targetFrequency}</Text>\n            <Text style={styles.dot}>•</Text>\n            <View style={styles.streakBadge}>\n              <Ionicons name=\"flame\" size={12} color={theme.colors.success} />\n              <Text style={styles.streakText}>{habit.streak} streak</Text>\n            </View>\n          </View>\n        </View>\n      </View>\n\n      <TouchableOpacity\n        style={styles.deleteButton}\n        onPress={() => onDelete(habit.id)}\n        accessibilityLabel={`Delete ${habit.title}`}\n      >\n        <Ionicons name=\"trash-outline\" size={18} color={theme.colors.textSecondary} />\n      </TouchableOpacity>\n    </View>\n  );\n}\n\nconst styles = StyleSheet.create({\n  card: {\n    backgroundColor: theme.colors.cardBackground,\n    borderRadius: theme.borderRadius.md,\n    padding: theme.spacing.md,\n    marginBottom: theme.spacing.md,\n    flexDirection: 'row',\n    alignItems: 'center',\n    justifyContent: 'space-between',\n    borderWidth: 1,\n    borderColor: theme.colors.border,\n  },\n  cardCompleted: {\n    borderColor: 'rgba(16, 185, 129, 0.4)',\n    backgroundColor: 'rgba(16, 185, 129, 0.05)',\n  },\n  leftSection: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    flex: 1,\n    marginRight: theme.spacing.sm,\n  },\n  checkbox: {\n    width: 28,\n    height: 28,\n    borderRadius: theme.borderRadius.sm,\n    borderWidth: 2,\n    borderColor: theme.colors.border,\n    justifyContent: 'center',\n    alignItems: 'center',\n    marginRight: theme.spacing.md,\n    backgroundColor: theme.colors.background,\n  },\n  checkboxCompleted: {\n    backgroundColor: theme.colors.success,\n    borderColor: theme.colors.success,\n  },\n  textContainer: {\n    flex: 1,\n  },\n  title: {\n    fontSize: theme.fontSizes.lg,\n    fontWeight: '600',\n    color: theme.colors.textPrimary,\n    marginBottom: 4,\n  },\n  titleCompleted: {\n    textDecorationLine: 'line-through',\n    color: theme.colors.textSecondary,\n  },\n  metaRow: {\n    flexDirection: 'row',\n    alignItems: 'center',\n  },\n  frequency: {\n    fontSize: theme.fontSizes.sm,\n    color: theme.colors.textSecondary,\n    textTransform: 'capitalize',\n  },\n  dot: {\n    color: theme.colors.textSecondary,\n    marginHorizontal: 6,\n  },\n  streakBadge: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    backgroundColor: 'rgba(16, 185, 129, 0.1)',\n    paddingHorizontal: 6,\n    paddingVertical: 2,\n    borderRadius: theme.borderRadius.full,\n  },\n  streakText: {\n    fontSize: theme.fontSizes.sm,\n    color: theme.colors.success,\n    fontWeight: '600',\n    marginLeft: 4,\n  },\n  deleteButton: {\n    padding: theme.spacing.xs,\n  },\n});\n",
+    "src/components/EmptyState.js": "import React from 'react';\nimport { View, Text, StyleSheet, TouchableOpacity } from 'react-native';\nimport { Ionicons } from '@expo/vector-icons';\nimport { theme } from '../theme';\n\n// EmptyState guides users with clear calls-to-action when lists are empty\nexport default function EmptyState({ icon, title, message, ctaLabel, onCta }) {\n  return (\n    <View style={styles.card}>\n      <Ionicons name={icon} size={48} color={theme.colors.primary} />\n      <Text style={styles.title}>{title}</Text>\n      <Text style={styles.message}>{message}</Text>\n      {ctaLabel && onCta && (\n        <TouchableOpacity style={styles.button} onPress={onCta}>\n          <Text style={styles.buttonText}>{ctaLabel}</Text>\n        </TouchableOpacity>\n      )}\n    </View>\n  );\n}\n\nconst styles = StyleSheet.create({\n  card: {\n    backgroundColor: theme.colors.cardBackground,\n    borderRadius: theme.borderRadius.lg,\n    padding: theme.spacing.xl,\n    alignItems: 'center',\n    justifyContent: 'center',\n    marginTop: theme.spacing.xl,\n    borderWidth: 1,\n    borderColor: theme.colors.border,\n  },\n  title: {\n    fontSize: theme.fontSizes.lg,\n    fontWeight: 'bold',\n    color: theme.colors.textPrimary,\n    marginTop: theme.spacing.md,\n    textAlign: 'center',\n  },\n  message: {\n    fontSize: theme.fontSizes.md,\n    color: theme.colors.textSecondary,\n    textAlign: 'center',\n    marginTop: theme.spacing.xs,\n    marginBottom: theme.spacing.lg,\n    lineHeight: 20,\n  },\n  button: {\n    backgroundColor: theme.colors.primary,\n    paddingHorizontal: theme.spacing.lg,\n    paddingVertical: theme.spacing.sm,\n    borderRadius: theme.borderRadius.md,\n  },\n  buttonText: {\n    color: theme.colors.textPrimary,\n    fontWeight: '650',\n    fontSize: theme.fontSizes.md,\n  },\n});\n"
+  },
+  "builtMilestones": [
+    "milestone-1",
+    "milestone-2",
+    "milestone-3"
+  ],
+  "buildLog": [
+    {
+      "id": "milestone-0",
+      "kind": "milestone",
+      "title": "Milestone 1: App Shell & Navigation",
+      "notes": "- Set up the global design tokens in `src/theme.js` to ensure consistent 8px grid spacing and accessible color contrast for student developers.\n- Configured React Navigation with a native stack inside a bottom tab layout, allowing smooth exploration between habits and weekly stats.\n- Created placeholder screens for Home, Create Habit, and Progress with correct navigation hooks.\n- Try it: Tap the bottom tabs or the \"+ New Habit\" button in the preview to explore navigation flow.",
+      "changedFiles": [
+        "src/theme.js",
+        "src/screens/HomeScreen.js",
+        "src/screens/CreateHabitScreen.js",
+        "src/screens/ProgressScreen.js",
+        "App.js"
+      ],
+      "at": 1791213096230
+    },
+    {
+      "id": "milestone-1",
+      "kind": "milestone",
+      "title": "Milestone 2: Habit Management & Storage",
+      "notes": "- Created `src/context/HabitContext.js` to manage habit state with AsyncStorage persistence and realistic seed data.\n- Built `src/components/HabitCard.js` for clean habit items with completion checkboxes and delete actions.\n- Updated `src/screens/CreateHabitScreen.js` with form inputs and frequency selectors.\n- Updated `src/screens/HomeScreen.js` to render the dynamic list of habits from context.\n- Try it: Tap the '+' button in the top right to create a new habit, then check it off!",
+      "changedFiles": [
+        "src/context/HabitContext.js",
+        "src/components/HabitCard.js",
+        "src/screens/CreateHabitScreen.js",
+        "src/screens/HomeScreen.js",
+        "App.js"
+      ],
+      "at": 1791213205487
+    },
+    {
+      "id": "milestone-2",
+      "kind": "milestone",
+      "title": "Milestone 3: Check-ins, Streaks & Weekly View",
+      "notes": "- Implemented daily check-ins with instant toggle feedback, updating streak counters in real time.\n- Added intelligent streak calculation: incrementing on successful daily completion and resetting to 0 if a past day was missed.\n- Built a 7-day calendar progress grid in ProgressScreen visualizing weekly consistency per habit.\n- Created a reusable EmptyState component to guide users when no items are present.\nTry it: Tap the checkmark button on any habit card in Today to complete it, watch your streak count update instantly, and check the Progress tab!\n<<<END FILE>>>",
+      "changedFiles": [
+        "src/components/EmptyState.js",
+        "src/components/HabitCard.js",
+        "src/context/HabitContext.js",
+        "src/screens/HomeScreen.js",
+        "src/screens/ProgressScreen.js"
+      ],
+      "at": 1791213323151
+    }
+  ],
+  "explanations": {
+    "beginner:src/screens/HomeScreen.js": {
+      "level": "beginner",
+      "hash": "1mn7ac1",
+      "data": {
+        "summary": "HomeScreen displays the user's daily habits in a scrollable list, providing quick actions to check in, delete, or create new routines.",
+        "role": "It sits as the primary dashboard screen in the navigation flow, connecting the user interface directly to our app data context.",
+        "sections": [
+          {
+            "title": "Imports and Setup",
+            "startLine": 1,
+            "endLine": 12,
+            "explanation": "We pull in core React tools, UI components from React Native, and custom context. Think of useContext like grabbing a shared clipboard that holds all our habit data without needing to pass it down manually through every component.",
+            "concept": "useContext"
+          },
+          {
+            "title": "Loading State",
+            "startLine": 13,
+            "endLine": 20,
+            "explanation": "Before our habit data is fully read from storage, we display a simple loading message. This prevents the app from crashing by attempting to show items that do not exist yet.",
+            "concept": "Conditional Rendering"
+          },
+          {
+            "title": "Header and Navigation",
+            "startLine": 21,
+            "endLine": 36,
+            "explanation": "This section renders the screen title and an add button. When pressed, the navigation prop pushes the user to the habit creation screen, similar to opening a sub-menu.",
+            "concept": "Navigation prop"
+          },
+          {
+            "title": "Conditional List or Empty State",
+            "startLine": 37,
+            "endLine": 59,
+            "explanation": "Here we check if the habits array is empty. If it is, we show an encouraging empty state component; otherwise, we render a high-performance scrolling list that recycles views as you scroll.",
+            "concept": "FlatList"
+          },
+          {
+            "title": "Styles Definition",
+            "startLine": 63,
+            "endLine": 104,
+            "explanation": "React Native does not use CSS files, so we style our components using JavaScript objects. StyleSheet.create helps optimize these styles behind the scenes for better app performance.",
+            "concept": "StyleSheet"
+          }
+        ],
+        "gotchas": [
+          "Forgetting to provide a unique string keyExtractor to FlatList can cause rendering bugs and erratic scrolling behavior.",
+          "Attempting to read properties of undefined habits before the loading state check finishes can throw runtime exceptions."
+        ]
+      }
+    },
+    "beginner:src/screens/CreateHabitScreen.js": {
+      "level": "beginner",
+      "hash": "m8n0nh",
+      "data": {
+        "summary": "This file provides a screen for users to type in a new habit name and pick its frequency, saving it to global state.",
+        "role": "It sits in the navigation layer as a modal-like input form where users add new data to the app.",
+        "sections": [
+          {
+            "title": "Imports and Constants",
+            "startLine": 1,
+            "endLine": 8,
+            "explanation": "We pull in the tools and components needed for layout and state management. Think of this like gathering ingredients and mixing bowls before you start baking.",
+            "concept": "ES6 Imports and Constants"
+          },
+          {
+            "title": "Component Setup and State",
+            "startLine": 9,
+            "endLine": 24,
+            "explanation": "We set up local state variables to hold the user's text input and selected frequency. If validation passes, we call the global save function and head back to the previous screen.",
+            "concept": "useState and useContext Hooks"
+          },
+          {
+            "title": "Form Rendering",
+            "startLine": 25,
+            "endLine": 73,
+            "explanation": "This block builds the visual layout, using a loop to dynamically render clickable frequency buttons. It reacts instantly when the user types or taps a chip.",
+            "concept": "JSX Rendering and Array Mapping"
+          },
+          {
+            "title": "Stylesheets",
+            "startLine": 75,
+            "endLine": 165,
+            "explanation": "We define all visual presentation rules here using a styling object that hooks into our app theme. This keeps our design consistent across different screens.",
+            "concept": "StyleSheet.create"
+          }
+        ],
+        "gotchas": [
+          "Forgetting to trim whitespace from text inputs, leading to habits with accidental blank spaces.",
+          "Mutating state directly instead of using the designated setter functions provided by useState."
+        ]
+      }
+    },
+    "beginner:src/screens/ProgressScreen.js": {
+      "level": "beginner",
+      "hash": "m9pr85",
+      "data": {
+        "summary": "This file renders the analytics screen, showing users a 7-day consistency grid and streak counts for each of their tracked habits.",
+        "role": "It sits in the screens layer, giving users visual feedback on their habit performance over time by reading directly from global state.",
+        "sections": [
+          {
+            "title": "Imports and Helper Setup",
+            "startLine": 1,
+            "endLine": 20,
+            "explanation": "We import necessary React Native primitives, styling constants, and icon libraries. We also define a helper function that generates an array of the past seven days, much like tearing off the last seven pages of a desk calendar to see your recent history.",
+            "concept": "Helper Functions and Imports"
+          },
+          {
+            "title": "Screen Component and Loading State",
+            "startLine": 21,
+            "endLine": 34,
+            "explanation": "ProgressScreen receives navigation props and pulls habit data from our global context. If the data is still loading from storage, it presents a simple loading message to keep the user informed.",
+            "concept": "Context Consumption and Conditional Loading"
+          },
+          {
+            "title": "Empty State Handling",
+            "startLine": 35,
+            "endLine": 48,
+            "explanation": "Using a ternary operator, we check if the habits array is empty. If there are no habits to display, we render an empty state component with a call-to-action button that routes the user back to the main tracking view.",
+            "concept": "Conditional Rendering"
+          },
+          {
+            "title": "Habit Card and Streak Details",
+            "startLine": 49,
+            "endLine": 59,
+            "explanation": "When habits exist, we loop through them to create a card for each one. Inside the card header, we display the habit's title and its current streak count accompanied by a flame icon.",
+            "concept": "Array Mapping and UI Cards"
+          },
+          {
+            "title": "Seven-Day Grid Mapping",
+            "startLine": 60,
+            "endLine": 86,
+            "explanation": "For every habit, we map through our past 7 days array to draw a row of date boxes. We check the habit's history object to see if a date key exists, changing the box color and showing a checkmark if the habit was completed that day.",
+            "concept": "Nested Array Mapping and Boolean Casting"
+          },
+          {
+            "title": "Style Sheet Definitions",
+            "startLine": 88,
+            "endLine": 183,
+            "explanation": "We use React Native's StyleSheet API to define clean, scalable styles for layout, typography, and card containers. This keeps our visual rules modular and easy to maintain alongside our components.",
+            "concept": "StyleSheet API"
+          }
+        ],
+        "gotchas": [
+          "Using array index as a key for nested maps can cause rendering bugs if items reorder. Always use unique identifiers like dateKey.",
+          "Forgetting to check if habit.history exists before looking up a dateKey will crash your app when history is undefined.",
+          "Hardcoding pixel dimensions instead of leveraging theme spacing and font variables makes screens look inconsistent across different phone sizes."
+        ]
+      }
+    },
+    "beginner:App.js": {
+      "level": "beginner",
+      "hash": "7457sh",
+      "data": {
+        "summary": "App.js acts as the main entry point for HabitPulse, setting up navigation routes, global styling, and data storage wrappers.",
+        "role": "It sits at the very top of the architecture tree, organizing how screens connect and ensuring state flows down to every view.",
+        "sections": [
+          {
+            "title": "Imports and Setup",
+            "startLine": 1,
+            "endLine": 16,
+            "explanation": "We import necessary libraries for React, navigation, icons, and local screens. Think of this like gathering the blueprints and tools before construction begins.",
+            "concept": "ES6 Imports"
+          },
+          {
+            "title": "Home Stack Navigator",
+            "startLine": 17,
+            "endLine": 25,
+            "explanation": "This stack manages screens that push on top of each other, like opening a new page in a book. It lets users move seamlessly from the main habit list to the habit creation form.",
+            "concept": "Native Stack Navigator"
+          },
+          {
+            "title": "Bottom Tab Navigator",
+            "startLine": 27,
+            "endLine": 57,
+            "explanation": "This sets up the bottom navigation bar and styles icons based on whether a tab is actively selected. It is like the main dashboard panel in a car that lets you switch between different core functions.",
+            "concept": "Bottom Tab Navigator"
+          },
+          {
+            "title": "Root Component",
+            "startLine": 58,
+            "endLine": 70,
+            "explanation": "The App component wraps our entire navigation inside a global state provider. This ensures all screens can access and update habit data without messy workarounds.",
+            "concept": "Context Provider Wrapper"
+          }
+        ],
+        "gotchas": [
+          "Forgetting to wrap the NavigationContainer inside the HabitProvider, which will cause crashes when screens try to read user data.",
+          "Nesting navigators incorrectly, such as putting a stack navigator inside a tab navigator without properly handling screen options."
+        ]
+      }
+    },
+    "beginner:src/context/HabitContext.js": {
+      "level": "beginner",
+      "hash": "163njag",
+      "data": {
+        "summary": "This file manages the global state for habits, including loading and saving data to local device storage and calculating daily completion streaks.",
+        "role": "It sits at the core of the app architecture as a data provider, supplying state and modification functions to any screen that needs them.",
+        "sections": [
+          {
+            "title": "Streak Calculation",
+            "startLine": 6,
+            "endLine": 27,
+            "explanation": "This function looks backwards day-by-day from today to count how many consecutive days a habit was completed. Think of it like walking backwards down a hallway of calendar days, counting consecutive footprints until you find an empty day.",
+            "concept": "Algorithm logic & Date manipulation"
+          },
+          {
+            "title": "Initial Seed Data",
+            "startLine": 29,
+            "endLine": 58,
+            "explanation": "These lines set up default mock habits so the app does not look completely empty when a user opens it for the first time. It generates a sample history object spanning the past three days.",
+            "concept": "Mock data seeding"
+          },
+          {
+            "title": "Context Creation",
+            "startLine": 60,
+            "endLine": 65,
+            "explanation": "Here we create the React Context container and set up internal component states for the habit list and loading indicator. Context acts like a broadcasting station, letting any child component tune in to get data without passing props manually down every screen.",
+            "concept": "createContext & useState"
+          },
+          {
+            "title": "Loading Stored Data",
+            "startLine": 66,
+            "endLine": 89,
+            "explanation": "When the provider first appears on screen, this hook fetches saved habits from the phone's persistent storage. If nothing is saved yet, it falls back to the default initial habits and saves them.",
+            "concept": "useEffect & AsyncStorage"
+          },
+          {
+            "title": "Actions and Modifiers",
+            "startLine": 90,
+            "endLine": 134,
+            "explanation": "These helper functions handle adding, deleting, and toggling check-ins for individual habits. Whenever data changes, they immediately update the local state and persist the new list to device storage.",
+            "concept": "State immutability & CRUD operations"
+          },
+          {
+            "title": "Provider Component Export",
+            "startLine": 135,
+            "endLine": 141,
+            "explanation": "This wraps all child components in the HabitContext provider, packaging up the habits array and action functions into a single value object. Any screen inside this provider can now access these tools easily.",
+            "concept": "Context Provider pattern"
+          }
+        ],
+        "gotchas": [
+          "Forgetting that AsyncStorage only stores strings, meaning you must always JSON.stringify when saving and JSON.parse when loading objects.",
+          "Mutating state objects directly instead of creating a shallow copy with the spread operator, which prevents React from noticing changes and re-rendering.",
+          "Not handling asynchronous errors properly during storage reads and writes, which can lead to silent failures and blank screens."
+        ]
+      }
+    }
+  },
+  "progress": {
+    "xp": 0,
+    "lessonsRead": [],
+    "quizCorrect": [],
+    "quizAttempted": [],
+    "challengesPassed": []
+  },
+  "understanding": {
+    "summary": "This is a focused productivity app designed to help college students build and maintain consistent habits through daily tracking, streak counts, and weekly summaries. It is a classic utility app that relies heavily on local state management and a clean, motivating user interface.",
+    "appType": "Productivity",
+    "complexity": "starter",
+    "similarApps": [
+      "Streaks",
+      "Habitica",
+      "Loop Habit Tracker"
+    ],
+    "questions": [
+      {
+        "id": "audience",
+        "question": "Who is the primary user for the first version?",
+        "why": "Knowing your exact user helps us decide if we need social features or keep it strictly solo.",
+        "options": [
+          "Just me and a few friends",
+          "Any college student on campus",
+          "Students and busy young professionals"
+        ],
+        "multiSelect": false
+      },
+      {
+        "id": "core_loop",
+        "question": "What happens when a user misses a day?",
+        "why": "This dictates how aggressive or forgiving your streak calculation logic needs to be.",
+        "options": [
+          "Streak resets completely to zero",
+          "Streak freezes with a warning",
+          "User can use a 'freeze' token to save it"
+        ],
+        "multiSelect": false
+      },
+      {
+        "id": "offline_needs",
+        "question": "Does the app need to work completely offline?",
+        "why": "Offline-first apps require local database setup, whereas online apps need user accounts and cloud sync from day one.",
+        "options": [
+          "Yes, local storage only is fine",
+          "No, cloud backup is required immediately",
+          "Starts offline, syncs when internet is available"
+        ],
+        "multiSelect": false
+      },
+      {
+        "id": "monetisation",
+        "question": "How do you plan to sustain the app long-term?",
+        "why": "Adding in-app purchases or ads changes your app architecture and compliance requirements early on.",
+        "options": [
+          "100% free and open-source",
+          "One-time purchase for pro features",
+          "Optional donations or tips"
+        ],
+        "multiSelect": false
+      }
+    ]
+  },
+  "brief": {
+    "name": "HabitPulse",
+    "tagline": "A simple offline habit tracker to build consistency with friends.",
+    "problem": "College students struggle to maintain daily routines due to erratic schedules, leading to broken habits and lack of motivation without an overly complex tracking system.",
+    "personas": [
+      {
+        "name": "Alex the Student",
+        "description": "An engineering undergraduate trying to balance coursework, sleep schedule, and coding hobbies without burning out.",
+        "needs": [
+          "Fast daily check-ins that take less than 10 seconds",
+          "Clear streak counters to stay motivated",
+          "Reliable offline access when campus Wi-Fi drops"
+        ]
+      }
+    ],
+    "features": [
+      {
+        "id": "habit-creation",
+        "name": "Habit Creation",
+        "description": "Create custom habits with a title and target frequency.",
+        "priority": "must",
+        "userStory": "As a student, I want to create a new habit with a custom title so that I can track specific goals I care about."
+      },
+      {
+        "id": "daily-check-in",
+        "name": "Daily Check-in",
+        "description": "Mark habits as complete or incomplete for the current day with instant feedback.",
+        "priority": "must",
+        "userStory": "As a student, I want to check off my habits daily so that my progress is recorded accurately."
+      },
+      {
+        "id": "streak-tracking",
+        "name": "Streak Counter and Reset",
+        "description": "Calculate current streaks and reset them completely to zero if a day is missed.",
+        "priority": "must",
+        "userStory": "As a student, I want my streak to reset if I miss a day so that I am held accountable to daily consistency."
+      },
+      {
+        "id": "weekly-progress-view",
+        "name": "Weekly Progress View",
+        "description": "Visualize completion rates over the past seven days using a clean calendar grid.",
+        "priority": "must",
+        "userStory": "As a student, I want to view my weekly progress so that I can evaluate my overall performance."
+      }
+    ],
+    "outOfScope": [
+      "Cloud synchronization and user accounts",
+      "Real-time social sharing or friend leaderboards",
+      "Push notifications and reminders",
+      "In-app purchases or monetization models"
+    ],
+    "assumptions": [
+      "Users will access the app on a single personal device, making local storage sufficient.",
+      "Users are self-motivated enough to open the app daily without push notifications.",
+      "A strict streak reset policy will drive higher engagement than a grace period."
+    ]
+  },
+  "plan": {
+    "stack": {
+      "choice": "React Native + Expo SDK 54.0.0 (JavaScript)",
+      "reason": "React Native allows us to build a cross-platform mobile app rapidly using JavaScript, fitting our Expo Snack live preview requirement perfectly.",
+      "alternatives": [
+        {
+          "name": "Flutter",
+          "whyNot": "Requires Dart instead of JavaScript, which conflicts with our web-to-mobile teaching focus."
+        },
+        {
+          "name": "Native Swift/Kotlin",
+          "whyNot": "Too fragmented for a lightweight multi-platform learning demo that needs instant browser preview."
+        },
+        {
+          "name": "PWA",
+          "whyNot": "Lacks native performance and deep integration with mobile storage APIs compared to React Native."
+        }
+      ]
+    },
+    "navigation": {
+      "pattern": "tabs+stack",
+      "reason": "Bottom tabs separate the daily check-in dashboard from the weekly progress view, while stack navigation handles habit creation cleanly."
+    },
+    "storage": {
+      "choice": "@react-native-async-storage/async-storage",
+      "reason": "Simple key-value storage that works out-of-the-box locally without requiring native config or backend credentials.",
+      "productionUpgrade": "Migrate to Supabase or Firebase Firestore for robust cloud sync and user accounts."
+    },
+    "screens": [
+      {
+        "id": "HomeScreen",
+        "name": "Today's Habits",
+        "purpose": "View today's habits and toggle completion status with live streak updates.",
+        "components": [
+          "FlatList",
+          "HabitCard",
+          "Button",
+          "EmptyState"
+        ],
+        "navigatesTo": [
+          "CreateHabitScreen"
+        ]
+      },
+      {
+        "id": "CreateHabitScreen",
+        "name": "Create Habit",
+        "purpose": "Form to input a new habit title and target frequency.",
+        "components": [
+          "TextInput",
+          "Button",
+          "KeyboardAvoidingView"
+        ],
+        "navigatesTo": [
+          "HomeScreen"
+        ]
+      },
+      {
+        "id": "ProgressScreen",
+        "name": "Weekly Progress",
+        "purpose": "Visualize completion rates over the past 7 days in a clean grid.",
+        "components": [
+          "ScrollView",
+          "GridCalendar",
+          "StatsCard"
+        ],
+        "navigatesTo": []
+      }
+    ],
+    "dataModel": [
+      {
+        "name": "Habit",
+        "description": "Represents a single habit tracked by the student.",
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "note": "Unique timestamp string"
+          },
+          {
+            "name": "title",
+            "type": "string",
+            "note": "Name of the habit"
+          },
+          {
+            "name": "targetFrequency",
+            "type": "string",
+            "note": "e.g. Daily"
+          },
+          {
+            "name": "streak",
+            "type": "number",
+            "note": "Current consecutive days completed"
+          },
+          {
+            "name": "history",
+            "type": "object",
+            "note": "Map of YYYY-MM-DD keys to boolean completion values"
+          },
+          {
+            "name": "createdAt",
+            "type": "string",
+            "note": "ISO date string"
+          }
+        ]
+      }
+    ],
+    "milestones": [
+      {
+        "id": "milestone-1",
+        "title": "App Shell & Navigation",
+        "goal": "Set up theme, bottom tabs, stack navigator, and placeholder screens.",
+        "files": [
+          "App.js",
+          "src/theme.js",
+          "src/screens/HomeScreen.js",
+          "src/screens/CreateHabitScreen.js",
+          "src/screens/ProgressScreen.js"
+        ],
+        "concepts": [
+          "@react-navigation/native",
+          "@react-navigation/bottom-tabs",
+          "@react-navigation/native-stack",
+          "react-native-safe-area-context"
+        ]
+      },
+      {
+        "id": "milestone-2",
+        "title": "Habit Management & Storage",
+        "goal": "Create custom habits and persist them locally using AsyncStorage.",
+        "files": [
+          "src/context/HabitContext.js",
+          "src/screens/CreateHabitScreen.js",
+          "src/screens/HomeScreen.js",
+          "src/components/HabitCard.js"
+        ],
+        "concepts": [
+          "AsyncStorage",
+          "useContext",
+          "TextInput",
+          "FlatList"
+        ]
+      },
+      {
+        "id": "milestone-3",
+        "title": "Check-ins, Streaks & Weekly View",
+        "goal": "Mark daily check-ins, calculate/reset streaks, and render weekly progress grid.",
+        "files": [
+          "src/screens/HomeScreen.js",
+          "src/screens/ProgressScreen.js",
+          "src/components/EmptyState.js"
+        ],
+        "concepts": [
+          "Date manipulation",
+          "Conditional styling",
+          "Empty states",
+          "Form validation"
+        ]
+      }
+    ],
+    "risks": [
+      "Date formatting and timezone mismatches when checking off daily tasks.",
+      "AsyncStorage corruption if state updates happen concurrently."
+    ]
+  },
+  "snack": {
+    "id": "gRoWwEDHI3eqDDXxSubEJ",
+    "expoUrl": "exp://u.expo.dev/933fd9c0-1666-11e7-afca-d980795c5824?runtime-version=exposdk%3A54.0.0&channel-name=production&snack=gRoWwEDHI3eqDDXxSubEJ",
+    "embedUrl": "https://snack.expo.dev/embedded/gRoWwEDHI3eqDDXxSubEJ?preview=true&platform=web&theme=light&supportedPlatforms=web",
+    "webUrl": "https://snack.expo.dev/gRoWwEDHI3eqDDXxSubEJ"
+  },
+  "snackHash": "30m0wh",
+  "learning": {
+    "overview": "Welcome to your personalized learning path for HabitPulse! We've selected 5 core concepts directly from your codebase—ranging from component styling and list virtualization to global state management, local persistence, and custom date calculations. Master these to strengthen your React Native foundation.",
+    "lessons": [
+      {
+        "id": "conditional-styling",
+        "concept": "Conditional Styling",
+        "roadmapLevel": 4,
+        "difficulty": "beginner",
+        "whyInYourApp": "HabitPulse alters card and checkbox appearances dynamically when a habit is marked complete for today.",
+        "fileRef": {
+          "path": "src/components/HabitCard.js",
+          "line": 13
+        },
+        "lesson": "Conditional styling in React Native allows components to adapt visually based on state or props. Instead of rewriting entire stylesheet blocks, you pass an array of styles to components like `View` or `Text`. The later styles in the array override properties from earlier ones. For example, `style={[styles.box, isActive && styles.activeBox]}` evaluates `isActive` and applies the active style modifier when true. In HabitPulse, `HabitCard.js` uses conditional arrays to dim completed titles with strike-throughs, switch border tones to emerald green, and tint background fills whenever `isCompletedToday` becomes true.",
+        "quiz": [
+          {
+            "question": "How do you apply multiple conditional styles to a React Native core component?",
+            "options": [
+              "Concatenate style strings with a plus sign",
+              "Inject raw CSS rules via inline style tags",
+              "Use CSS class selector strings inside the style prop",
+              "Pass an array of style objects where later items override earlier ones"
+            ],
+            "answerIndex": 3,
+            "explanation": "React Native's style prop accepts an array. When an array is passed, styles are applied from left to right, meaning rightmost styles override conflicting properties from leftmost styles."
+          },
+          {
+            "question": "What happens in a style array if a condition evaluates to false?",
+            "options": [
+              "An empty style object is rendered as a white square",
+              "undefined or false is ignored by the style resolver",
+              "The default style is completely removed from memory",
+              "React Native throws a runtime syntax error"
+            ],
+            "answerIndex": 1,
+            "explanation": "React Native safely ignores false, null, and undefined values inside style arrays, making conditional toggle expressions like `isActive && styles.active` extremely clean."
+          }
+        ],
+        "challenge": {
+          "task": "In `src/components/HabitCard.js`, add a subtle left border highlight or change the delete icon color conditionally when `isCompletedToday` is true.",
+          "hint": "Check how `cardCompleted` style is structured in `HabitCard.js` and add a new dynamic style property.",
+          "successCriteria": "The card visually responds instantly when toggled without crashing the app."
+        }
+      },
+      {
+        "id": "flatlist-virtualization",
+        "concept": "FlatList & Virtualization",
+        "roadmapLevel": 5,
+        "difficulty": "easy",
+        "whyInYourApp": "HomeScreen utilizes FlatList to render your daily habits efficiently without performance lag as your routine grows.",
+        "fileRef": {
+          "path": "src/screens/HomeScreen.js",
+          "line": 46
+        },
+        "lesson": "When displaying lists of data in mobile applications, rendering every single item at once causes severe memory pressure and dropped frames. React Native's `FlatList` solves this by only rendering items currently visible on screen (windowing) and recycling views as the user scrolls. To work correctly, `FlatList` requires a `data` array and a `renderItem` function. It also relies heavily on `keyExtractor` to uniquely identify items for efficient re-renders. In `HomeScreen.js`, `FlatList` iterates over your active habits, feeding each object into `HabitCard` while maintaining smooth scrolling momentum.",
+        "quiz": [
+          {
+            "question": "Why is FlatList preferred over mapping over an array inside a ScrollView for long lists?",
+            "options": [
+              "FlatList renders all items upfront for instant searching",
+              "FlatList automatically fetches data from remote servers",
+              "ScrollView cannot accept touch events inside mobile screens",
+              "FlatList virtualizes items, rendering only what is visible on screen"
+            ],
+            "answerIndex": 3,
+            "explanation": "Virtualization is the core advantage of FlatList; it dramatically lowers memory consumption by unmounting off-screen elements."
+          },
+          {
+            "question": "What is the purpose of the keyExtractor prop in a FlatList?",
+            "options": [
+              "To encrypt stored local items for security",
+              "To give React a unique string identifier for tracking items during updates",
+              "To sort items alphabetically before rendering",
+              "To determine the background color of each list cell"
+            ],
+            "answerIndex": 1,
+            "explanation": "`keyExtractor` tells React Native how to uniquely key each element so it can efficiently update, add, or remove list items without remounting the entire list."
+          }
+        ],
+        "challenge": {
+          "task": "In `src/screens/HomeScreen.js`, add `showsVerticalScrollIndicator={false}` to the FlatList component.",
+          "hint": "Pass the prop directly on the `<FlatList ... />` element in `HomeScreen.js`.",
+          "successCriteria": "The vertical scroll bar on the home screen is hidden while maintaining full scrolling capability."
+        }
+      },
+      {
+        "id": "context-api",
+        "concept": "Global State with useContext",
+        "roadmapLevel": 8,
+        "difficulty": "intermediate",
+        "whyInYourApp": "HabitContext manages your habits array, streak calculations, and check-in toggles globally across all screens.",
+        "fileRef": {
+          "path": "src/context/HabitContext.js",
+          "line": 60
+        },
+        "lesson": "As mobile applications grow past a single screen, passing state and callback functions down through props ('prop drilling') becomes unmaintainable. React's Context API provides a clean mechanism to share data globally across the component tree without explicit prop passing at every level. You create a context with `createContext()`, provide values via a Context Provider component wrapping your app tree, and consume those values anywhere using the `useContext` hook. In HabitPulse, `HabitContext.js` houses all habit manipulation logic (`addHabit`, `deleteHabit`, `toggleCheckIn`), allowing `HomeScreen` and `ProgressScreen` to interact with state seamlessly.",
+        "quiz": [
+          {
+            "question": "What problem does useContext and the Context API solve in React Native apps?",
+            "options": [
+              "Prop drilling through multiple intermediate component layers",
+              "Memory leaks caused by unregistered event listeners",
+              "Slow network request latency",
+              "Styling inconsistencies across Android and iOS"
+            ],
+            "answerIndex": 0,
+            "explanation": "Context eliminates prop drilling by allowing any child component to subscribe directly to shared provider values."
+          },
+          {
+            "question": "What must wrap your component tree for `useContext(HabitContext)` to return valid data?",
+            "options": [
+              "A ScrollView container",
+              "A NavigationContainer",
+              "An AsyncStorage instance wrapper",
+              "The corresponding HabitContext.Provider component"
+            ],
+            "answerIndex": 3,
+            "explanation": "Consumers of a context must be descendants of that context's Provider component; otherwise, they receive default fallback values."
+          }
+        ],
+        "challenge": {
+          "task": "In `src/context/HabitContext.js`, add a console.log statement inside `addHabit` to print when a new habit is successfully created.",
+          "hint": "Locate the `addHabit` function around line 100 in `HabitContext.js` and add your log before `saveHabits`.",
+          "successCriteria": "Creating a new habit prints your custom log message to the developer console."
+        }
+      },
+      {
+        "id": "async-storage",
+        "concept": "Local Persistence with AsyncStorage",
+        "roadmapLevel": 9,
+        "difficulty": "intermediate",
+        "whyInYourApp": "AsyncStorage saves your habits and check-in history locally on your device so your streaks persist across app restarts.",
+        "fileRef": {
+          "path": "src/context/HabitContext.js",
+          "line": 69
+        },
+        "lesson": "Mobile users expect their data to remain intact when closing and reopening an app. Because React Native state resets on unmount or app termination, you need local storage. `@react-native-async-storage/async-storage` is an unencrypted, asynchronous key-value store designed for this purpose. Because storage operations are asynchronous, they return Promises and require `async/await` syntax. Furthermore, AsyncStorage only stores strings, meaning objects and arrays must be serialized using `JSON.stringify()` when saving and deserialized with `JSON.parse()` when loading. In HabitPulse, `HabitContext.js` persists your habit routines under `STORAGE_KEY` on startup.",
+        "quiz": [
+          {
+            "question": "Why must you use `JSON.stringify()` before saving an array of habits to AsyncStorage?",
+            "options": [
+              "To compress the file size for faster disk writes",
+              "To comply with iOS file system regulations",
+              "Because AsyncStorage only accepts string data values",
+              "To encrypt sensitive student habit data"
+            ],
+            "answerIndex": 2,
+            "explanation": "AsyncStorage operates strictly on string key-value pairs. Storing raw JavaScript objects results in '[object Object]' unless serialized."
+          },
+          {
+            "question": "How do you handle asynchronous loading of stored habits when the app first launches?",
+            "options": [
+              "Using setTimeout callbacks with hardcoded delays",
+              "Calling AsyncStorage synchronously in the global scope",
+              "Using useEffect with an async helper function inside the body",
+              "Declaring component state as a generator function"
+            ],
+            "answerIndex": 2,
+            "explanation": "Async operations inside React components are typically triggered within `useEffect` by defining and invoking an async function."
+          }
+        ],
+        "challenge": {
+          "task": "In `src/context/HabitContext.js`, update the `STORAGE_KEY` string value to include your own initials or unique app version suffix.",
+          "hint": "Look at line 4 in `src/context/HabitContext.js` where `STORAGE_KEY` is defined.",
+          "successCriteria": "The app successfully initializes and loads seed or stored habits using the updated storage key."
+        }
+      },
+      {
+        "id": "date-manipulation",
+        "concept": "Date Manipulation & Grid Generation",
+        "roadmapLevel": 10,
+        "difficulty": "advanced",
+        "whyInYourApp": "ProgressScreen generates the past 7 days dynamically using JavaScript Date objects to render your weekly consistency grid.",
+        "fileRef": {
+          "path": "src/screens/ProgressScreen.js",
+          "line": 9
+        },
+        "lesson": "Building streak trackers and analytics dashboards requires precise date manipulation. JavaScript's built-in `Date` object allows you to perform arithmetic on timestamps and days. To generate rolling calendars or past-week grids like HabitPulse's 7-day view, you instantiate `new Date()`, clone it, and subtract days using `setDate(today.getDate() - i)`. Formatting these dates into ISO date keys (`YYYY-MM-DD`) ensures reliable lookups against history records. In `ProgressScreen.js`, `getPast7Days()` loops backward from today to construct weekday labels and date keys, enabling the app to evaluate whether each habit was completed on any given day.",
+        "quiz": [
+          {
+            "question": "How do you correctly subtract days from a JavaScript Date object without mutating the original date reference?",
+            "options": [
+              "d.subtractDays(i)",
+              "const d = new Date(today); d.setDate(today.getDate() - i);",
+              "today - i * 86400000 directly inside string interpolation",
+              "Using Intl.DateTimeFormat negative offsets"
+            ],
+            "answerIndex": 1,
+            "explanation": "Cloning the date into a new instance `new Date(today)` prevents unintended mutation of the original date object when calling `setDate`."
+          },
+          {
+            "question": "Why is `toISOString().split('T')[0]` commonly used as a dictionary key for habit history?",
+            "options": [
+              "It produces a clean YYYY-MM-DD date string ideal for JSON lookup keys",
+              "It converts local time to UTC universally across all planets",
+              "It automatically triggers UI re-renders",
+              "It encrypts the timestamp against tampering"
+            ],
+            "answerIndex": 0,
+            "explanation": "Splitting an ISO string at 'T' extracts the standard `YYYY-MM-DD` date portion, making it a predictable key for object lookups."
+          }
+        ],
+        "challenge": {
+          "task": "In `src/screens/ProgressScreen.js`, modify `getPast7Days` so it generates the past 5 days instead of 7.",
+          "hint": "Change the loop bounds in `getPast7Days()` from `6` down to `4` (or adjust the loop condition).",
+          "successCriteria": "The weekly progress grid successfully updates to display exactly 5 columns instead of 7."
+        }
+      }
+    ],
+    "nextSteps": [
+      "Test your habit persistence by toggling items and restarting the Expo development server.",
+      "Experiment with adding a new frequency option like 'Weekends' in CreateHabitScreen.",
+      "Explore adding haptic feedback on check-in toggles using Expo Haptics for an even more polished feel."
+    ]
+  }
+}

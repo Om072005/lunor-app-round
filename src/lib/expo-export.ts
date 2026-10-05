@@ -70,16 +70,11 @@ export function exportFiles(name: string, files: ProjectFiles): Record<string, s
   return { ...scaffold, ...files };
 }
 
-export async function downloadProjectZip(name: string, files: ProjectFiles): Promise<void> {
+/** Zips the exported project under a top-level folder named after the app. */
+export async function zipProject(name: string, files: ProjectFiles): Promise<Uint8Array> {
   const { default: JSZip } = await import("jszip");
   const zip = new JSZip();
   const root = zip.folder(slugify(name));
   for (const [path, content] of Object.entries(exportFiles(name, files))) root?.file(path, content);
-  const blob = await zip.generateAsync({ type: "blob" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${slugify(name)}.zip`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return zip.generateAsync({ type: "uint8array" });
 }

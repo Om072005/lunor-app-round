@@ -75,8 +75,10 @@ Constraints of this studio (be transparent about them):
 - The app is built with React Native + Expo SDK ${EXPO_SDK_VERSION} in JavaScript, previewed live in Expo Snack.
 - Data is stored on-device with AsyncStorage; describe the production upgrade (e.g. Firebase/Supabase) in storage.productionUpgrade.
 - Allowed packages: ${Object.keys(ALLOWED_PACKAGES).join(", ")}.
-Stack decision: recommend React Native + Expo and explain why it fits THIS app; list real alternatives
-(Flutter, native Swift/Kotlin, PWA) with an honest app-specific "whyNot".
+Stack decision: recommend React Native + Expo and explain why it fits THIS app's users and features
+(e.g. one codebase for iOS + Android, offline storage, fast iteration) — never cite the studio or Snack as the
+reason. List real alternatives (Flutter, native Swift/Kotlin, PWA) with an honest app-specific "whyNot",
+including when an alternative would be the better choice as the app grows.
 Screens: 2-6 screens, ids in PascalCase ending in "Screen" (they become src/screens/<id>.js).
 Milestones: 3 (max 4), each leaving the app runnable:
   1) app shell — theme, navigation, all screens as simple placeholders, seed data;
@@ -104,7 +106,8 @@ const CODE_RULES = `CODE RULES (the app must run in Expo Snack's web preview AND
 
 const OUTPUT_PROTOCOL = `OUTPUT FORMAT — use exactly this plain-text protocol, nothing else:
 <<<NOTES>>>
-markdown: 3-5 bullets on what you built and why, then one line starting "Try it:" telling the student what to tap in the preview
+- 3-5 markdown bullets on what you built and why
+**Try it:** one line telling the student what to tap in the preview
 <<<END NOTES>>>
 <<<FILE relative/path.js>>>
 full file contents

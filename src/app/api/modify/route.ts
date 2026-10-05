@@ -11,7 +11,7 @@ export function POST(request: Request) {
       body.mode === "fix"
         ? fixPrompt(body.brief, body.files, body.issues ?? [])
         : modifyPrompt(body.brief, body.files, body.instruction ?? "");
-    const stream = await streamText({ apiKey, system: MODIFY_SYSTEM, prompt, temperature: 0.3 });
+    const stream = await streamText({ apiKey, tier: "quality", system: MODIFY_SYSTEM, prompt, temperature: 0.3 });
     return textStreamResponse(stream);
   });
 }

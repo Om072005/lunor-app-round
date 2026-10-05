@@ -50,6 +50,23 @@ describe("parseFileStream", () => {
     expect(parseFileStream(text).files).toEqual([{ path: "App.js", content: "x\n" }]);
   });
 
+  test("strips an echoed 'markdown:' label from notes", () => {
+    expect(parseFileStream("<<<NOTES>>>\nmarkdown:\n- Built X\n<<<END NOTES>>>").notes).toBe("- Built X");
+  });
+
+  test("tolerates malformed close markers (seen in real Gemini output)", () => {
+    const text = "<<<FILE a.js>>>\nconst a = 1;\n<<<END FILE>\n<<<FILE b.js>>>\nconst b = 2;\n<<<END FILE>>>";
+    expect(parseFileStream(text).files).toEqual([
+      { path: "a.js", content: "const a = 1;\n" },
+      { path: "b.js", content: "const b = 2;\n" },
+    ]);
+  });
+
+  test("a new FILE opener ends the previous block even without any close marker", () => {
+    const text = "<<<FILE a.js>>>\nconst a = 1;\n<<<FILE b.js>>>\nconst b = 2;\n<<<END FILE>>>";
+    expect(parseFileStream(text).files.map((f) => f.content)).toEqual(["const a = 1;\n", "const b = 2;\n"]);
+  });
+
   test("returns empty result for empty input", () => {
     expect(parseFileStream("")).toEqual({ notes: "", files: [], partial: null });
   });
