@@ -18,5 +18,5 @@ export function POST(request: Request) {
       temperature: 0.5,
     });
     return Response.json(shuffleLearningPath(path));
-  });
+  }, { bucket: "learn", perMinute: 4 });
 }

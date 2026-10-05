@@ -156,10 +156,17 @@ export async function streamText(opts: BaseOptions): Promise<ReadableStream<Uint
     async start(controller) {
       try {
         let step = iterator.first;
+        let finishReason: string | undefined;
         while (!step.done) {
           const text = step.value.text;
           if (text) controller.enqueue(encoder.encode(text));
+          finishReason = step.value.candidates?.[0]?.finishReason ?? finishReason;
           step = await iterator.it.next();
+        }
+        // A clean end of stream is not success: MAX_TOKENS / RECITATION / SAFETY cut code off mid-project.
+        if (finishReason && finishReason !== "STOP") {
+          console.error(`[gemini] stream ended early: ${finishReason}`);
+          controller.enqueue(encoder.encode(`\n<<<ERROR INCOMPLETE>>>`));
         }
       } catch (err) {
         const aiErr = toAiError(err);

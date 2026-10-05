@@ -101,6 +101,20 @@ describe("streamText", () => {
     expect(await readAll(await streamText(base))).toBe("partial\n<<<ERROR RATE_LIMIT>>>");
   });
 
+  test("flags a stream that ends for any reason other than STOP", async () => {
+    async function* early() {
+      yield { text: "<<<FILE a.js>>>\nconst", candidates: [{ finishReason: "RECITATION" }] };
+    }
+    generateContentStream.mockResolvedValue(early());
+    expect(await readAll(await streamText(base))).toBe("<<<FILE a.js>>>\nconst\n<<<ERROR INCOMPLETE>>>");
+
+    async function* clean() {
+      yield { text: "done", candidates: [{ finishReason: "STOP" }] };
+    }
+    generateContentStream.mockResolvedValue(clean());
+    expect(await readAll(await streamText(base))).toBe("done");
+  });
+
   test("falls back before the first token and surfaces errors to the route", async () => {
     generateContentStream
       .mockRejectedValueOnce(Object.assign(new Error("unavailable"), { status: 503 }))

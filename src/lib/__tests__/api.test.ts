@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { clientIp, createRateLimiter } from "../api/rate-limit";
-import { FilesSchema, ModifyRequest, UnderstandRequest } from "../api/requests";
+import { BriefRequest, FilesSchema, ModifyRequest, PlanRequest, UnderstandRequest } from "../api/requests";
 
 describe("createRateLimiter", () => {
   test("allows up to the limit, then blocks until the window resets", () => {
@@ -48,6 +48,18 @@ describe("request schemas", () => {
     expect(FilesSchema.safeParse({ "../secret.js": "x" }).success).toBe(false);
     const many = Object.fromEntries(Array.from({ length: 31 }, (_, i) => [`f${i}.js`, ""]));
     expect(FilesSchema.safeParse(many).success).toBe(false);
+  });
+
+  test("brief, plan and answers are size-bounded so the server key can't be used as a free LLM proxy", () => {
+    const brief = {
+      name: "A", tagline: "t", problem: "p".repeat(30_000),
+      personas: [{ name: "n", description: "d", needs: ["x"] }],
+      features: [1, 2, 3].map((i) => ({ id: `f${i}`, name: "n", description: "d", priority: "must", userStory: "s" })),
+      outOfScope: [], assumptions: [],
+    };
+    expect(PlanRequest.safeParse({ brief }).success).toBe(false);
+    const answers = Object.fromEntries(Array.from({ length: 20 }, (_, i) => [`q${i}`, ["a"]]));
+    expect(BriefRequest.safeParse({ idea: "A habit tracker for students", questions: [], answers }).success).toBe(false);
   });
 
   test("modify requires an instruction for change mode and issues for fix mode", () => {

@@ -57,8 +57,14 @@ Key decisions:
   per-attempt timeouts, since free-tier models frequently return 503 "high demand". Users can paste their
   own Gemini key (kept in their browser) if the shared quota runs out, and recorded **sample projects**
   make every stage explorable with no key at all.
-- **Security.** All input is validated with Zod at the API boundary (file path whitelist, size limits),
-  there is a per-IP rate limit, the API key never reaches the client, and AI markdown is rendered without raw HTML.
+- **Incomplete generations are never silently accepted.** The server flags any stream that ends for a
+  reason other than `STOP` (e.g. `MAX_TOKENS`, `RECITATION`); the client keeps completed files but only marks
+  a milestone built when the step finished and left no dangling imports, so **Retry** resumes the work.
+- **Security.** All input is validated with Zod at the API boundary (file path whitelist, body/brief/plan
+  size caps so the shared key can't be used as a free LLM proxy), per-IP rate limits with a stricter bucket
+  for code generation, server-side project checks before anything is published to Expo Snack, the API key
+  never reaches the client, and AI markdown is rendered without raw HTML. Rate limits are in-memory per
+  serverless instance (fine for a prototype); production would move them to a shared store such as Upstash.
 
 ## Project layout
 

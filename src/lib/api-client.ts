@@ -12,8 +12,6 @@ export class ApiClientError extends Error {
   }
 }
 
-const STREAM_ERROR = /<<<ERROR (\w+)>>>/;
-
 function headers(): HeadersInit {
   const key = useSettings.getState().geminiKey;
   return { "Content-Type": "application/json", ...(key ? { "x-gemini-key": key } : {}) };
@@ -45,7 +43,11 @@ export async function postJson<T>(path: string, body: unknown, signal?: AbortSig
   return (await res.json()) as T;
 }
 
-/** Streams a text response, calling onText with the full accumulated text after every chunk. */
+/**
+ * Streams a text response, calling onText with the full accumulated text after every chunk.
+ * Returns the raw text; callers interpret a trailing <<<ERROR>>> marker via finalizeStream,
+ * so partial work from an interrupted generation is never lost.
+ */
 export async function postStream(path: string, body: unknown, onText: (fullText: string) => void, signal?: AbortSignal): Promise<string> {
   const res = await send(path, body, signal);
   if (!res.body) throw new ApiClientError("NO_BODY", "Empty response from server.");
@@ -56,16 +58,15 @@ export async function postStream(path: string, body: unknown, onText: (fullText:
     const { done, value } = await reader.read();
     if (done) break;
     full += decoder.decode(value, { stream: true });
-    const err = full.match(STREAM_ERROR);
-    if (err) throw new ApiClientError(err[1], streamErrorMessage(err[1]));
     onText(full);
   }
   return full;
 }
 
-function streamErrorMessage(code: string): string {
+export function streamErrorMessage(code: string): string {
   if (code === "RATE_LIMIT") return "Gemini free-tier rate limit reached mid-stream. Wait a minute and retry.";
-  return "The AI stream was interrupted. Please retry.";
+  if (code === "INCOMPLETE") return "The AI stopped before finishing this step. Completed files were kept — press Retry to continue.";
+  return "The AI stream was interrupted. Completed files were kept — press Retry to continue.";
 }
 
 export async function getStatus(): Promise<{ aiEnabled: boolean }> {

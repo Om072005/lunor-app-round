@@ -2,7 +2,7 @@
 
 import clsx from "clsx";
 import { ArrowRight, Check, Download, Hammer, Loader2, Square } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { CodeEditor } from "@/components/CodeEditor";
 import { FileTree } from "@/components/FileTree";
 import { PhonePreview } from "@/components/PhonePreview";
@@ -18,9 +18,10 @@ import { useSnackPreview } from "./useSnackPreview";
 
 export function BuildStage({ project, update, goTo }: StageProps) {
   const { brief, plan, files } = project;
-  const code = useCodeStream(update);
+  const getFiles = useCallback(() => useProjects.getState().projects[project.id]?.files ?? {}, [project.id]);
+  const code = useCodeStream(update, getFiles);
   const preview = useSnackPreview(project, update);
-  const [selected, setSelected] = useState<string | undefined>(() => (files["App.js"] !== undefined ? "App.js" : Object.keys(files)[0]));
+  const [selected, setSelected] = useState<string | undefined>();
   const [lastRequest, setLastRequest] = useState<CodeStreamRequest | null>(null);
 
   const issues = useMemo(() => (Object.keys(files).length > 0 ? checkProject(files) : []), [files]);
@@ -55,7 +56,9 @@ export function BuildStage({ project, update, goTo }: StageProps) {
     runStream({ endpoint: "/api/modify", body: { brief, files, mode: "fix", issues: issues.map((i) => `${i.path}: ${i.message}`) }, kind: "fix", title: "Fixed checker issues" });
 
   // While streaming, the editor follows the file being written.
-  const livePath = streamingPath ?? selected;
+  // Fall back to App.js (or the first file) so a fresh build never leaves the editor empty.
+  const fallbackPath = files["App.js"] !== undefined ? "App.js" : Object.keys(files)[0];
+  const livePath = streamingPath ?? (selected !== undefined && files[selected] !== undefined ? selected : fallbackPath);
   const liveFile = code.live?.files.find((f) => f.path === livePath);
   const editorValue = streamingPath && livePath === streamingPath ? code.live!.partial!.content : liveFile?.content ?? (livePath ? files[livePath] ?? "" : "");
 

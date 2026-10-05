@@ -7,7 +7,8 @@ import type { LineHighlight } from "@/components/CodeEditor";
 import { Markdown } from "@/components/Markdown";
 import { Badge, Button, ErrorNote, Thinking } from "@/components/ui";
 import type { Level } from "@/lib/ai/prompts";
-import { postJson, postStream } from "@/lib/api-client";
+import { ApiClientError, postJson, postStream, streamErrorMessage } from "@/lib/api-client";
+import { splitTrailingError } from "@/lib/file-stream-parser";
 import { useAsyncAction, type ProjectUpdater } from "@/lib/hooks";
 import { contentHash, type Project } from "@/lib/project";
 import type { FileExplanation } from "@/lib/schemas";
@@ -106,7 +107,9 @@ function AskBox({ path, code, selection, level }: { path: string; code: string; 
     useCallback(
       async (signal: AbortSignal, q: string) => {
         setAnswer("");
-        await postStream("/api/ask", { path, code, selection, question: q, level }, setAnswer, signal);
+        const show = (t: string) => setAnswer(splitTrailingError(t).body);
+        const { error } = splitTrailingError(await postStream("/api/ask", { path, code, selection, question: q, level }, show, signal));
+        if (error) throw new ApiClientError(error, streamErrorMessage(error));
       },
       [path, code, selection, level],
     ),

@@ -5,6 +5,9 @@ import { handleAiRoute, textStreamResponse } from "@/lib/api/route-utils";
 
 export const maxDuration = 300;
 
+/** Code generation is the most expensive call on the shared free-tier key. */
+const CODEGEN_LIMIT = { bucket: "codegen", perMinute: 6 };
+
 export function POST(request: Request) {
   return handleAiRoute(request, ModifyRequest, async ({ body, apiKey }) => {
     const prompt =
@@ -13,5 +16,5 @@ export function POST(request: Request) {
         : modifyPrompt(body.brief, body.files, body.instruction ?? "");
     const stream = await streamText({ apiKey, tier: "quality", system: MODIFY_SYSTEM, prompt, temperature: 0.3 });
     return textStreamResponse(stream);
-  });
+  }, CODEGEN_LIMIT);
 }

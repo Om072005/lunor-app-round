@@ -73,3 +73,31 @@ function stripFences(raw: string, complete: boolean): string {
   }
   return body;
 }
+
+/** The server appends `<<<ERROR CODE>>>` as the very last thing in a stream when generation fails or stops early. */
+const TRAILING_ERROR = /\n?<<<ERROR (\w+)>>>\s*$/;
+
+export interface FinalizedStream {
+  parsed: ParsedFileStream;
+  /** Error code from the server, or null when the generation finished normally. */
+  error: string | null;
+}
+
+/**
+ * Interprets a finished stream. Without a server error, a last file missing only its
+ * close marker is accepted (models often drop the final marker). With an error, the
+ * unfinished file stays in `partial` and must not be applied.
+ */
+export function splitTrailingError(text: string): { body: string; error: string | null } {
+  const marker = text.match(TRAILING_ERROR);
+  return marker ? { body: text.slice(0, marker.index), error: marker[1] } : { body: text, error: null };
+}
+
+export function finalizeStream(text: string): FinalizedStream {
+  const { body, error } = splitTrailingError(text);
+  const parsed = parseFileStream(body);
+  if (error) return { parsed, error };
+  if (!parsed.partial) return { parsed, error: null };
+  const files = [...parsed.files.filter((f) => f.path !== parsed.partial!.path), { ...parsed.partial, content: parsed.partial.content.replace(/\s*$/, "\n") }];
+  return { parsed: { ...parsed, files, partial: null }, error: null };
+}

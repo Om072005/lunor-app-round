@@ -53,6 +53,21 @@ describe("handleAiRoute", () => {
     expect(res.status).toBe(200);
   });
 
+  test("rejects oversized bodies with 413 before parsing", async () => {
+    const big = JSON.stringify({ name: "x".repeat(450_000) });
+    const res = await handleAiRoute(post(big), Body, async () => new Response("ok"));
+    expect(res.status).toBe(413);
+  });
+
+  test("expensive routes get their own, stricter bucket", async () => {
+    const req = () => new Request("http://x/api", { method: "POST", body: '{"name":"Ada"}', headers: { "x-forwarded-for": "8.8.8.8" } });
+    const statuses = [];
+    for (let i = 0; i < 3; i++) statuses.push((await handleAiRoute(req(), Body, async () => new Response("ok"), { bucket: "build", perMinute: 2 })).status);
+    expect(statuses).toEqual([200, 200, 429]);
+    // The default bucket is unaffected for the same client.
+    expect((await handleAiRoute(req(), Body, async () => new Response("ok"))).status).toBe(200);
+  });
+
   test("rate limits a single client", async () => {
     const same = () => new Request("http://x/api", { method: "POST", body: '{"name":"Ada"}', headers: { "x-forwarded-for": "9.9.9.9" } });
     const statuses = [];

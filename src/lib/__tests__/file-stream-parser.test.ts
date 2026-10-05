@@ -1,5 +1,27 @@
 import { describe, expect, test } from "vitest";
-import { parseFileStream } from "../file-stream-parser";
+import { finalizeStream, parseFileStream } from "../file-stream-parser";
+
+describe("finalizeStream", () => {
+  test("a clean stream is complete; a missing final close marker is forgiven", () => {
+    const res = finalizeStream("<<<FILE a.js>>>\nx\n<<<END FILE>>>\n<<<FILE b.js>>>\ny");
+    expect(res.error).toBeNull();
+    expect(res.parsed.files.map((f) => f.path)).toEqual(["a.js", "b.js"]);
+    expect(res.parsed.partial).toBeNull();
+  });
+
+  test("a trailing server error marker is separated from the content", () => {
+    const res = finalizeStream("<<<FILE a.js>>>\nx\n<<<END FILE>>>\n<<<FILE b.js>>>\ncon\n<<<ERROR INCOMPLETE>>>");
+    expect(res.error).toBe("INCOMPLETE");
+    expect(res.parsed.files).toEqual([{ path: "a.js", content: "x\n" }]);
+    expect(res.parsed.partial?.path).toBe("b.js");
+  });
+
+  test("an error marker inside generated code is not treated as a stream error", () => {
+    const res = finalizeStream("<<<FILE a.js>>>\nconst s = '<<<ERROR RATE_LIMIT>>>';\n<<<END FILE>>>");
+    expect(res.error).toBeNull();
+    expect(res.parsed.files).toHaveLength(1);
+  });
+});
 
 describe("parseFileStream", () => {
   test("extracts notes and complete files", () => {
